@@ -626,6 +626,86 @@ main { padding: 20px 16px 110px; }
   padding-top: 22px; border-top: 1px solid var(--border);
 }
 
+/* ============ REPORT — segmented controls + chart ============ */
+.seg-control {
+  display: grid; gap: 4px;
+  background: #F1F5F9;
+  border-radius: 12px; padding: 4px;
+  margin: 4px 8px 0;
+}
+.seg-control-range { grid-template-columns: repeat(4, 1fr); }
+.seg-control-metric { grid-template-columns: repeat(2, 1fr); margin-top: 8px; }
+
+.seg-btn, .seg-btn-pill {
+  font-family: inherit; font-weight: 800; font-size: 13px;
+  padding: 9px 0; border-radius: 8px;
+  color: var(--body); transition: all 0.15s;
+  letter-spacing: -0.005em; text-align: center;
+}
+.seg-btn:hover, .seg-btn-pill:hover { color: var(--ink); }
+.seg-btn.active, .seg-btn-pill.active {
+  background: #fff; color: var(--ink);
+  box-shadow: 0 1px 2px rgba(15,23,42,0.08);
+}
+
+.custom-range {
+  display: flex; align-items: center; justify-content: center;
+  gap: 10px; margin: 12px 8px 0;
+  font-weight: 700; font-size: 13px; color: var(--muted);
+}
+.custom-range input[type="date"] {
+  font-family: inherit; font-weight: 800; font-size: 13px;
+  padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 8px;
+  background: #fff; color: var(--ink); outline: none;
+  font-variant-numeric: tabular-nums;
+  -webkit-appearance: none;
+}
+.custom-range input[type="date"]:focus { border-color: var(--red); }
+
+.goal-tag-row {
+  display: flex; justify-content: center;
+  margin-top: 14px;
+}
+
+.chart-bars {
+  display: flex; align-items: flex-end; gap: 4px;
+  min-height: 130px; padding: 8px 0 0;
+  margin-top: 4px;
+}
+.chart-bar-col {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  min-width: 0;
+}
+.chart-bar-track {
+  width: 100%; height: 96px;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.chart-bar-fill {
+  width: 100%; max-width: 28px;
+  background: var(--ink);
+  border-radius: 4px 4px 0 0;
+  min-height: 2px;
+  transition: height 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.chart-bar-fill.today { background: var(--red); }
+.chart-bar-fill.hit { background: var(--green); }
+.chart-bar-num {
+  font-weight: 800; font-size: 11px; color: var(--ink);
+  font-variant-numeric: tabular-nums; margin-top: 6px;
+  letter-spacing: -0.005em;
+}
+.chart-bar-label {
+  font-weight: 800; font-size: 10px; color: var(--muted);
+  text-transform: uppercase; margin-top: 2px;
+  letter-spacing: 0.04em;
+}
+.chart-axis {
+  display: flex; justify-content: space-between;
+  font-weight: 800; font-size: 10px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  margin-top: 8px; padding: 0 4px;
+}
+
 /* ============ TEAM ============ */
 .screen-title { font-weight: 900; font-size: 26px; letter-spacing: -0.03em; color: var(--ink); margin-bottom: 4px; }
 .screen-date  { font-weight: 700; font-size: 13px; color: var(--body); margin-bottom: 22px; }
@@ -1309,82 +1389,50 @@ main { padding: 20px 16px 110px; }
 
     <!-- REPORT -->
     <section id="screen-report" class="screen">
-      <div class="hero-shell">
-        <div class="hero-date">Daily report · Thursday, 14 May 2026</div>
-
-        <div class="hero-numbers">
-          <span class="hero-num">43</span>
-        </div>
-
-        <div class="hero-status">accounts opened across SME MBA today.</div>
+      <div class="seg-control seg-control-range">
+        <button class="seg-btn active" data-range="today" onclick="setReportRange('today', this)">Today</button>
+        <button class="seg-btn" data-range="week" onclick="setReportRange('week', this)">Week</button>
+        <button class="seg-btn" data-range="month" onclick="setReportRange('month', this)">Month</button>
+        <button class="seg-btn" data-range="custom" onclick="setReportRange('custom', this)">Custom</button>
       </div>
 
-      <div class="inline-stats">
-        From <b>61 acquisitions</b> · <b>70%</b> same-day conversion · <b>5</b> of <b>6</b> officers hit goal.
+      <div class="custom-range" id="custom-range" style="display:none;">
+        <input type="date" id="custom-from" min="2026-04-14" max="2026-05-14" onchange="updateCustomRange()">
+        <span>to</span>
+        <input type="date" id="custom-to" min="2026-04-14" max="2026-05-14" onchange="updateCustomRange()">
+      </div>
+
+      <div class="seg-control seg-control-metric">
+        <button class="seg-btn-pill active" data-metric="opened" onclick="setReportMetric('opened', this)">Opened</button>
+        <button class="seg-btn-pill" data-metric="acquired" onclick="setReportMetric('acquired', this)">Acquired</button>
+      </div>
+
+      <div class="hero-shell">
+        <div class="hero-date" id="rep-date-label">Thursday, 14 May 2026</div>
+
+        <div class="hero-numbers">
+          <span class="hero-num" id="rep-hero-num">12</span>
+        </div>
+
+        <div class="hero-status" id="rep-status">accounts opened today.</div>
+
+        <div class="goal-tag-row" id="rep-goal-tag" style="display:none;">
+          <span class="tag-pill green"><i data-lucide="check" class="icon-sm"></i> Hit goal <b><span id="rep-goals-hit">0</span> of <span id="rep-days-count">0</span></b> days</span>
+        </div>
+      </div>
+
+      <div class="inline-stats" id="rep-inline-stats">
+        From <b>10 acquisitions</b> — <b>120%</b> same-day conversion.
+      </div>
+
+      <div class="flat-section" id="rep-chart-section" style="display:none;">
+        <div class="flat-section-label">By day</div>
+        <div class="chart-bars" id="rep-chart-bars"></div>
       </div>
 
       <div class="flat-section">
         <div class="flat-section-label">By account type</div>
-        <div class="bd-list">
-          <div class="bd-flat">
-            <div class="top">
-              <span class="mono mono-T1">T1</span>
-              <span class="label">Tier 1</span>
-              <span class="count">14</span>
-            </div>
-            <div class="bar"><div class="fill" style="width:33%; background:var(--t1);"></div></div>
-          </div>
-          <div class="bd-flat">
-            <div class="top">
-              <span class="mono mono-T3">T3</span>
-              <span class="label">Tier 3</span>
-              <span class="count">11</span>
-            </div>
-            <div class="bar"><div class="fill" style="width:26%; background:var(--t3);"></div></div>
-          </div>
-          <div class="bd-flat">
-            <div class="top">
-              <span class="mono mono-GT">GT</span>
-              <span class="label">GTCREATE</span>
-              <span class="count">8</span>
-            </div>
-            <div class="bar"><div class="fill" style="width:19%; background:var(--gt);"></div></div>
-          </div>
-          <div class="bd-flat">
-            <div class="top">
-              <span class="mono mono-SM">SM</span>
-              <span class="label">SME</span>
-              <span class="count">6</span>
-            </div>
-            <div class="bar"><div class="fill" style="width:14%; background:var(--sm);"></div></div>
-          </div>
-          <div class="bd-flat">
-            <div class="top">
-              <span class="mono mono-SK">SK</span>
-              <span class="label">SKS</span>
-              <span class="count">4</span>
-            </div>
-            <div class="bar"><div class="fill" style="width:9%; background:var(--sk);"></div></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="actions-stack">
-        <button class="cta red">
-          <i data-lucide="file-down" class="icon"></i>
-          Download PDF report
-        </button>
-        <button id="email-cta" class="cta dark" onclick="composeEmail()">
-          <i data-lucide="mail" class="icon"></i>
-          Compose email to division
-        </button>
-        <div id="email-success" class="success-banner" style="display:none;">
-          <i data-lucide="check-circle-2" class="icon-lg"></i>
-          <div class="meta">
-            <div class="heading">Email composed</div>
-            <div class="sub">Attach the PDF and send to your division head</div>
-          </div>
-        </div>
+        <div class="bd-list" id="rep-bd-list"></div>
       </div>
     </section>
 
@@ -1510,13 +1558,20 @@ main { padding: 20px 16px 110px; }
     </div>
 
     <div class="actions-stack">
-      <button class="cta red">
+      <button id="admin-send-cta" class="cta red" onclick="adminSendReport()">
+        <i data-lucide="send" class="icon"></i>
+        Send today's report
+      </button>
+      <div id="admin-send-success" class="success-banner" style="display:none;">
+        <i data-lucide="check-circle-2" class="icon-lg"></i>
+        <div class="meta">
+          <div class="heading">Email composed with PDF attached</div>
+          <div class="sub">Review and send to your division head</div>
+        </div>
+      </div>
+      <button class="cta secondary">
         <i data-lucide="user-plus" class="icon"></i>
         Add Account Manager
-      </button>
-      <button class="cta secondary">
-        <i data-lucide="file-down" class="icon"></i>
-        Export today's report
       </button>
     </div>
   </main>
@@ -2164,6 +2219,233 @@ main { padding: 20px 16px 110px; }
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
   }
+
+  // ====== Admin: combined send report ======
+  function adminSendReport() {
+    document.getElementById('admin-send-cta').style.display = 'none';
+    document.getElementById('admin-send-success').style.display = 'flex';
+    setTimeout(() => lucide.createIcons(), 20);
+  }
+
+  // ====== Report — personal analytics ======
+  const TODAY_ISO = '2026-05-14';
+  const PERSONAL_GOAL = 15;
+
+  // Adaeze's last 23 weekdays (Apr 14 – May 14, 2026)
+  const HISTORY = [
+    { date: '2026-04-14', dow: 'Tue', acquired:  7, opened:  6, types: { t1: 2, t3: 2, gt: 1, sm: 1, sk: 0 } },
+    { date: '2026-04-15', dow: 'Wed', acquired:  9, opened:  8, types: { t1: 3, t3: 2, gt: 2, sm: 1, sk: 0 } },
+    { date: '2026-04-16', dow: 'Thu', acquired: 11, opened:  9, types: { t1: 3, t3: 3, gt: 2, sm: 1, sk: 0 } },
+    { date: '2026-04-17', dow: 'Fri', acquired:  5, opened:  4, types: { t1: 2, t3: 1, gt: 1, sm: 0, sk: 0 } },
+    { date: '2026-04-20', dow: 'Mon', acquired: 13, opened: 12, types: { t1: 4, t3: 3, gt: 3, sm: 1, sk: 1 } },
+    { date: '2026-04-21', dow: 'Tue', acquired: 12, opened: 14, types: { t1: 5, t3: 4, gt: 3, sm: 1, sk: 1 } },
+    { date: '2026-04-22', dow: 'Wed', acquired: 16, opened: 15, types: { t1: 5, t3: 4, gt: 4, sm: 1, sk: 1 } },
+    { date: '2026-04-23', dow: 'Thu', acquired:  8, opened: 11, types: { t1: 4, t3: 3, gt: 2, sm: 1, sk: 1 } },
+    { date: '2026-04-24', dow: 'Fri', acquired:  6, opened:  7, types: { t1: 2, t3: 2, gt: 2, sm: 1, sk: 0 } },
+    { date: '2026-04-27', dow: 'Mon', acquired: 14, opened: 16, types: { t1: 5, t3: 4, gt: 4, sm: 2, sk: 1 } },
+    { date: '2026-04-28', dow: 'Tue', acquired: 10, opened: 13, types: { t1: 4, t3: 3, gt: 3, sm: 2, sk: 1 } },
+    { date: '2026-04-29', dow: 'Wed', acquired: 15, opened: 18, types: { t1: 6, t3: 4, gt: 4, sm: 2, sk: 2 } },
+    { date: '2026-04-30', dow: 'Thu', acquired: 11, opened: 12, types: { t1: 4, t3: 3, gt: 3, sm: 1, sk: 1 } },
+    { date: '2026-05-01', dow: 'Fri', acquired:  4, opened:  6, types: { t1: 2, t3: 2, gt: 1, sm: 1, sk: 0 } },
+    { date: '2026-05-04', dow: 'Mon', acquired: 17, opened: 16, types: { t1: 5, t3: 4, gt: 4, sm: 2, sk: 1 } },
+    { date: '2026-05-05', dow: 'Tue', acquired:  9, opened: 11, types: { t1: 4, t3: 3, gt: 2, sm: 1, sk: 1 } },
+    { date: '2026-05-06', dow: 'Wed', acquired: 13, opened: 15, types: { t1: 5, t3: 4, gt: 3, sm: 2, sk: 1 } },
+    { date: '2026-05-07', dow: 'Thu', acquired:  8, opened: 10, types: { t1: 3, t3: 3, gt: 2, sm: 1, sk: 1 } },
+    { date: '2026-05-08', dow: 'Fri', acquired:  6, opened:  8, types: { t1: 3, t3: 2, gt: 2, sm: 1, sk: 0 } },
+    { date: '2026-05-11', dow: 'Mon', acquired: 12, opened: 14, types: { t1: 4, t3: 4, gt: 3, sm: 2, sk: 1 } },
+    { date: '2026-05-12', dow: 'Tue', acquired:  9, opened: 11, types: { t1: 4, t3: 3, gt: 2, sm: 1, sk: 1 } },
+    { date: '2026-05-13', dow: 'Wed', acquired: 13, opened: 16, types: { t1: 5, t3: 4, gt: 3, sm: 2, sk: 2 } },
+    { date: '2026-05-14', dow: 'Thu', acquired: 10, opened: 12, types: { t1: 4, t3: 3, gt: 3, sm: 1, sk: 1 } }
+  ];
+
+  let reportState = {
+    range: 'today',
+    metric: 'opened',
+    customFrom: null,
+    customTo: null
+  };
+
+  function setReportRange(range, btn) {
+    reportState.range = range;
+    document.querySelectorAll('.seg-control-range .seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const customEl = document.getElementById('custom-range');
+    customEl.style.display = (range === 'custom') ? 'flex' : 'none';
+    if (range === 'custom' && !reportState.customFrom) {
+      reportState.customFrom = '2026-05-07';
+      reportState.customTo = TODAY_ISO;
+      document.getElementById('custom-from').value = reportState.customFrom;
+      document.getElementById('custom-to').value = reportState.customTo;
+    }
+    renderReport();
+  }
+
+  function setReportMetric(metric, btn) {
+    reportState.metric = metric;
+    document.querySelectorAll('.seg-control-metric .seg-btn-pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderReport();
+  }
+
+  function updateCustomRange() {
+    reportState.customFrom = document.getElementById('custom-from').value;
+    reportState.customTo = document.getElementById('custom-to').value;
+    renderReport();
+  }
+
+  function getDataForRange() {
+    switch (reportState.range) {
+      case 'today':
+        return HISTORY.filter(d => d.date === TODAY_ISO);
+      case 'week':
+        return HISTORY.filter(d => d.date >= '2026-05-11' && d.date <= TODAY_ISO);
+      case 'month':
+        return HISTORY.filter(d => d.date.startsWith('2026-05'));
+      case 'custom':
+        if (!reportState.customFrom || !reportState.customTo) return [];
+        const from = reportState.customFrom <= reportState.customTo ? reportState.customFrom : reportState.customTo;
+        const to = reportState.customFrom <= reportState.customTo ? reportState.customTo : reportState.customFrom;
+        return HISTORY.filter(d => d.date >= from && d.date <= to);
+    }
+    return [];
+  }
+
+  function formatShortDate(iso) {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const [y, m, d] = iso.split('-');
+    return `${parseInt(d, 10)} ${months[parseInt(m, 10) - 1]}`;
+  }
+
+  function getDateLabel() {
+    const data = getDataForRange();
+    switch (reportState.range) {
+      case 'today':  return 'Thursday, 14 May 2026';
+      case 'week':   return `This week · ${formatShortDate('2026-05-11')} – ${formatShortDate(TODAY_ISO)}`;
+      case 'month':  return `This month · ${formatShortDate('2026-05-01')} – ${formatShortDate(TODAY_ISO)}`;
+      case 'custom':
+        if (data.length === 0) return 'Pick a date range';
+        return `${formatShortDate(data[0].date)} – ${formatShortDate(data[data.length - 1].date)} · ${data.length} day${data.length === 1 ? '' : 's'}`;
+    }
+    return '';
+  }
+
+  function renderReport() {
+    const data = getDataForRange();
+    const metric = reportState.metric;
+    const sum = data.reduce((s, d) => s + d[metric], 0);
+    const altMetric = metric === 'opened' ? 'acquired' : 'opened';
+    const altSum = data.reduce((s, d) => s + d[altMetric], 0);
+
+    document.getElementById('rep-hero-num').textContent = sum;
+    document.getElementById('rep-date-label').textContent = getDateLabel();
+
+    // Status sentence
+    const word = metric === 'opened' ? 'accounts opened' : 'prospects acquired';
+    const statusEl = document.getElementById('rep-status');
+    if (data.length === 0) {
+      statusEl.textContent = 'No data in this range.';
+    } else if (reportState.range === 'today') {
+      statusEl.textContent = `${word} today.`;
+    } else {
+      statusEl.textContent = `${word} over ${data.length} working day${data.length === 1 ? '' : 's'}.`;
+    }
+
+    // Inline narrative — depends on metric
+    const inlineEl = document.getElementById('rep-inline-stats');
+    if (data.length === 0) {
+      inlineEl.innerHTML = '';
+    } else if (metric === 'opened') {
+      const conv = altSum > 0 ? Math.round((sum / altSum) * 100) : 0;
+      inlineEl.innerHTML = `From <b>${altSum} acquisitions</b> — <b>${conv}%</b> same-day conversion.`;
+    } else {
+      const conv = sum > 0 ? Math.round((altSum / sum) * 100) : 0;
+      inlineEl.innerHTML = `Of those, <b>${altSum}</b> opened — <b>${conv}%</b> same-day conversion.`;
+    }
+
+    // Goal tag — only for opened + multi-day
+    const goalsTag = document.getElementById('rep-goal-tag');
+    if (metric === 'opened' && data.length > 1) {
+      const hits = data.filter(d => d.opened >= PERSONAL_GOAL).length;
+      document.getElementById('rep-goals-hit').textContent = hits;
+      document.getElementById('rep-days-count').textContent = data.length;
+      goalsTag.style.display = 'flex';
+    } else {
+      goalsTag.style.display = 'none';
+    }
+
+    // Per-day chart
+    const chartSection = document.getElementById('rep-chart-section');
+    if (data.length <= 1) {
+      chartSection.style.display = 'none';
+    } else {
+      chartSection.style.display = 'block';
+      renderChart(data, metric);
+    }
+
+    // Per-type breakdown
+    renderBreakdown(data);
+  }
+
+  function renderChart(data, metric) {
+    const max = Math.max(...data.map(d => d[metric]), 1);
+    const showLabels = data.length <= 7;
+    const showNumbers = data.length <= 10;
+    const html = data.map(d => {
+      const pct = (d[metric] / max) * 100;
+      const isToday = d.date === TODAY_ISO;
+      const isHit = metric === 'opened' && d.opened >= PERSONAL_GOAL;
+      const cls = isToday ? 'today' : (isHit ? 'hit' : '');
+      const label = showLabels ? d.dow.charAt(0) : '';
+      const numLine = showNumbers ? `<div class="chart-bar-num">${d[metric]}</div>` : '';
+      const labelLine = label ? `<div class="chart-bar-label">${label}</div>` : '';
+      return `<div class="chart-bar-col">
+        <div class="chart-bar-track">
+          <div class="chart-bar-fill ${cls}" style="height: ${pct}%"></div>
+        </div>
+        ${numLine}${labelLine}
+      </div>`;
+    }).join('');
+    document.getElementById('rep-chart-bars').innerHTML = html;
+
+    // Add axis for long ranges (no per-bar labels)
+    const chartSection = document.getElementById('rep-chart-section');
+    const existingAxis = chartSection.querySelector('.chart-axis');
+    if (existingAxis) existingAxis.remove();
+    if (!showLabels && data.length > 0) {
+      const axis = document.createElement('div');
+      axis.className = 'chart-axis';
+      axis.innerHTML = `<span>${formatShortDate(data[0].date)}</span><span>${formatShortDate(data[data.length - 1].date)}</span>`;
+      chartSection.appendChild(axis);
+    }
+  }
+
+  function renderBreakdown(data) {
+    const totals = { t1: 0, gt: 0, t3: 0, sm: 0, sk: 0 };
+    data.forEach(d => {
+      Object.keys(totals).forEach(k => totals[k] += (d.types[k] || 0));
+    });
+    const total = Object.values(totals).reduce((s, v) => s + v, 0);
+    const types = [
+      { key: 'T1', label: 'Tier 1',  count: totals.t1, color: 't1' },
+      { key: 'T3', label: 'Tier 3',  count: totals.t3, color: 't3' },
+      { key: 'GT', label: 'GTCREATE', count: totals.gt, color: 'gt' },
+      { key: 'SM', label: 'SME',      count: totals.sm, color: 'sm' },
+      { key: 'SK', label: 'SKS',      count: totals.sk, color: 'sk' }
+    ].sort((a, b) => b.count - a.count);
+    const html = types.map(t => `
+      <div class="bd-flat">
+        <div class="top">
+          <span class="mono mono-${t.key}">${t.key}</span>
+          <span class="label">${t.label}</span>
+          <span class="count">${t.count}</span>
+        </div>
+        <div class="bar"><div class="fill" style="width: ${total > 0 ? Math.round((t.count / total) * 100) : 0}%; background: var(--${t.color});"></div></div>
+      </div>`).join('');
+    document.getElementById('rep-bd-list').innerHTML = html;
+  }
+
+  // Initial render so Report tab is populated when first opened
+  renderReport();
 
   lucide.createIcons();
 </script>

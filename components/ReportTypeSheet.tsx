@@ -49,10 +49,13 @@ export function ReportTypeSheet({
       <div
         role="dialog"
         aria-label="Choose report type"
-        className="fixed left-1/2 -translate-x-1/2 z-[301] w-full max-w-[430px] transition-transform duration-300 ease-out"
+        className="fixed z-[301] w-full max-w-[430px] transition-transform duration-300 ease-out"
         style={{
           bottom: 0,
-          transform: open ? "translate(-50%, 0)" : "translate(-50%, 100%)",
+          left: 0,
+          right: 0,
+          marginInline: "auto",
+          transform: open ? "translateY(0)" : "translateY(100%)",
           background: "var(--color-bg)",
           borderRadius: "24px 24px 0 0",
           boxShadow: "0 -8px 32px rgba(15,23,42,0.18)",

@@ -60,10 +60,14 @@ export function HomeScreen({
                 </div>
                 <div className="flex-1 min-w-0">
                   <div
-                    className="font-extrabold text-[10px] uppercase mb-0.5"
-                    style={{ color: "rgba(255,255,255,0.7)", letterSpacing: "0.12em" }}
+                    className="inline-flex items-center gap-1.5 font-extrabold text-[10px] uppercase mb-1"
+                    style={{ color: "var(--color-brand-gold)", letterSpacing: "0.14em" }}
                   >
-                    Active campaign
+                    <span
+                      className="w-1.5 h-1.5 rounded-full animate-pulse"
+                      style={{ background: "var(--color-brand-gold)", boxShadow: "0 0 0 3px rgba(255,200,0,0.2)" }}
+                    />
+                    Live now
                   </div>
                   <div className="font-black text-[15px] truncate" style={{ letterSpacing: "-0.015em" }}>
                     {ev.name}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Edit3, Check, Flame, Award, MapPin, ArrowRight } from "lucide-react";
+import { Edit3, Check, Flame, Award, MapPin, ArrowRight, Banknote, Users, Target, Clock, Sparkles } from "lucide-react";
 import type { DailyReport } from "@/lib/types";
 import { useActiveEvents } from "@/lib/useActiveEvents";
 
@@ -27,14 +27,15 @@ export function HomeScreen({
   divisionId: string;
   amId: string;
 }) {
-  void amName;
-  void amId;
+  void amName; void amId;
   const todayIso = new Date().toISOString().slice(0, 10);
   const submitted = today !== null;
   const activeEvents = useActiveEvents(divisionId);
 
-  const heroVal = submitted ? today!.total_opened : 0;
-  const fillPct = Math.min(100, Math.round((heroVal / goal) * 100));
+  // The reports the AM can log today. Only Customer Acquisition is wired for now;
+  // others render as "coming soon" placeholders. Admin enables them later.
+  const activeCount = 1;
+  const doneCount = submitted ? 1 : 0;
 
   return (
     <>
@@ -83,159 +84,207 @@ export function HomeScreen({
         </div>
       )}
 
-      {/* Hero */}
-      <div className="px-2 pt-9 flex flex-col">
+      {/* Date + status */}
+      <div className="px-2 pt-6">
         <div
           className="text-center font-extrabold text-[11px] uppercase"
           style={{ color: "var(--color-muted)", letterSpacing: "0.2em" }}
         >
           {fmtFullDate(todayIso)}
         </div>
-
-        <div className="flex items-baseline justify-center gap-1.5 mt-7">
-          <span
-            className="num"
-            style={{
-              fontSize: 108,
-              lineHeight: 0.9,
-              letterSpacing: "-0.07em",
-              color: submitted ? "var(--color-ink)" : "#CBD5E1",
-            }}
-          >
-            {heroVal}
-          </span>
-          <span
-            className="font-extrabold"
-            style={{
-              fontSize: 38,
-              color: "var(--color-muted)",
-              letterSpacing: "-0.04em",
-            }}
-          >
-            /
-          </span>
-          <span
-            className="num"
-            style={{
-              fontSize: 38,
-              color: "var(--color-muted)",
-              letterSpacing: "-0.02em",
-              fontWeight: 800,
-            }}
-          >
-            {goal}
-          </span>
-        </div>
-
-        <div className="mt-7 w-full h-1.5 rounded-full overflow-hidden" style={{ background: "#EEF2F7" }}>
-          <div
-            className="h-full rounded-full transition-[width] duration-700"
-            style={{
-              width: `${fillPct}%`,
-              background: "linear-gradient(90deg, #16A34A, #22C55E)",
-            }}
-          />
-        </div>
-
-        <div
-          className="text-center mt-4 text-[15px] font-bold"
-          style={{ color: "var(--color-body)", letterSpacing: "-0.005em" }}
-        >
-          {submitted ? (
-            <>Logged at {new Date(today!.submitted_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.</>
-          ) : (
-            <>No report logged today.</>
-          )}
-        </div>
-
-        <div className="mt-8">
-          <Link
-            href="/log"
-            className="w-full rounded-2xl py-4.5 text-[16px] font-black flex items-center justify-center gap-2 text-white"
-            style={{
-              background: submitted ? "white" : "var(--color-brand-red)",
-              color: submitted ? "var(--color-ink)" : "white",
-              padding: "18px",
-              border: submitted ? "1.5px solid var(--color-line)" : "none",
-            }}
-          >
-            <Edit3 className="w-[18px] h-[18px]" />
-            {submitted ? "Edit today's report" : "Log today's report"}
-          </Link>
+        <div className="text-center mt-2 font-bold text-[13px]" style={{ color: "var(--color-body)" }}>
+          {doneCount === activeCount
+            ? <>All reports logged today <Check className="inline w-3.5 h-3.5" style={{ color: "var(--color-funded)" }} /></>
+            : <><b className="num" style={{ color: "var(--color-ink)" }}>{doneCount} of {activeCount}</b> {activeCount === 1 ? "report" : "reports"} logged today</>
+          }
         </div>
       </div>
 
-      {/* Detail */}
-      {(submitted ? today : yesterday) && (
+      {/* Today's reports */}
+      <div
+        className="mx-2 mt-7 pt-5"
+        style={{ borderTop: "1px solid var(--color-line)" }}
+      >
         <div
-          className="mx-2 mt-11 pt-6"
+          className="font-extrabold text-[11px] uppercase mb-3"
+          style={{ color: "var(--color-muted)", letterSpacing: "0.16em" }}
+        >
+          Today's reports
+        </div>
+
+        {/* ACQUISITION — real, wired */}
+        <AcquisitionCard
+          goal={goal}
+          today={today}
+          submitted={submitted}
+        />
+
+        {/* PLACEHOLDERS */}
+        <PlaceholderCard
+          icon={<Users className="w-5 h-5" />}
+          title="Customer Retention"
+          tagline="Track follow-ups and at-risk accounts"
+        />
+        <PlaceholderCard
+          icon={<Target className="w-5 h-5" />}
+          title="Cross-selling"
+          tagline="Log products offered and taken"
+        />
+      </div>
+
+      {/* Yesterday strip */}
+      {!submitted && yesterday && (
+        <div
+          className="mx-2 mt-8 pt-5"
           style={{ borderTop: "1px solid var(--color-line)" }}
         >
           <div
             className="font-extrabold text-[11px] uppercase mb-2.5"
             style={{ color: "var(--color-muted)", letterSpacing: "0.16em" }}
           >
-            {submitted ? "Today" : "Yesterday"}
+            Yesterday
           </div>
-          {submitted ? (
-            <TodayDetail r={today!} goal={goal} />
-          ) : (
-            <YesterdayDetail r={yesterday!} goal={goal} />
-          )}
-        </div>
-      )}
-
-      {!submitted && !yesterday && (
-        <div
-          className="mx-2 mt-11 pt-6 text-[13px] font-bold"
-          style={{ borderTop: "1px solid var(--color-line)", color: "var(--color-muted)" }}
-        >
-          No prior reports yet — your first submission starts the streak.
+          <YesterdayLine r={yesterday} goal={goal} />
         </div>
       )}
     </>
   );
 }
 
-function TodayDetail({ r, goal }: { r: DailyReport; goal: number }) {
-  const fromEarlier = Math.max(0, r.total_opened - r.opened_same_day);
-  const conv = r.acquired > 0 ? Math.round((r.opened_same_day / r.acquired) * 100) : 0;
-  const hitGoal = r.total_opened >= goal;
+function AcquisitionCard({
+  goal, today, submitted,
+}: { goal: number; today: DailyReport | null; submitted: boolean }) {
+  const time = submitted && today
+    ? new Date(today.submitted_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : "";
+  const fromEarlier = today ? Math.max(0, today.total_opened - today.opened_same_day) : 0;
+  const conv = today && today.acquired > 0 ? Math.round((today.opened_same_day / today.acquired) * 100) : 0;
+  const hitGoal = today ? today.total_opened >= goal : false;
+
   return (
-    <>
-      <p
-        className="font-bold text-[15px] mb-2"
-        style={{ color: "var(--color-ink)", lineHeight: 1.55, letterSpacing: "-0.005em" }}
-      >
-        <b className="num">{r.total_opened}</b> opened from <b className="num">{r.acquired}</b> acquired —{" "}
-        <b className="num">{r.opened_same_day}</b> from today&apos;s pipeline,{" "}
-        <b className="num">{fromEarlier}</b> from earlier.
-      </p>
-      <div className="flex gap-1.5 flex-wrap mt-3">
-        {hitGoal && (
-          <Pill icon={<Check className="w-3.5 h-3.5" />} tone="green">
-            Hit your goal
-          </Pill>
+    <div
+      className="rounded-2xl mb-3 overflow-hidden"
+      style={{ background: "white", border: "1.5px solid var(--color-line)" }}
+    >
+      <div className="px-4 pt-3.5 pb-3 flex items-center gap-3">
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: "rgba(206,17,38,0.08)", color: "var(--color-brand-red)" }}
+        >
+          <Banknote className="w-5 h-5" strokeWidth={2.25} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div
+            className="inline-flex items-center gap-1.5 font-extrabold text-[10px] uppercase mb-0.5"
+            style={{
+              color: submitted ? "var(--color-funded)" : "var(--color-pending)",
+              letterSpacing: "0.14em",
+            }}
+          >
+            {submitted ? (
+              <><Check className="w-3 h-3" strokeWidth={3} /> Logged · {time}</>
+            ) : (
+              <><span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--color-pending)" }} /> Pending</>
+            )}
+          </div>
+          <div className="font-black text-[15px]" style={{ color: "var(--color-ink)", letterSpacing: "-0.015em" }}>
+            Customer Acquisition
+          </div>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="px-4 pb-3 border-t" style={{ borderColor: "var(--color-line)", paddingTop: 12 }}>
+        {submitted && today ? (
+          <p
+            className="font-bold text-[14px]"
+            style={{ color: "var(--color-ink)", lineHeight: 1.5, letterSpacing: "-0.005em" }}
+          >
+            <b className="num">{today.total_opened}</b> opened from <b className="num">{today.acquired}</b> acquired —{" "}
+            <b className="num">{today.opened_same_day}</b> today, <b className="num">{fromEarlier}</b> from earlier pipeline.
+          </p>
+        ) : (
+          <div
+            className="font-bold text-[13px]"
+            style={{ color: "var(--color-body)" }}
+          >
+            Daily target: <b className="num" style={{ color: "var(--color-ink)" }}>{goal} opened</b>
+          </div>
         )}
-        <Pill icon={<Flame className="w-3.5 h-3.5" />} tone="gold">
-          Streak +1
-        </Pill>
-        {conv >= 50 && (
-          <Pill icon={<Award className="w-3.5 h-3.5" />} tone="gold">
-            Closer of the day
-          </Pill>
+
+        {submitted && today && (
+          <div className="flex gap-1.5 flex-wrap mt-2.5">
+            {hitGoal && <Pill icon={<Check className="w-3.5 h-3.5" />} tone="green">Hit your goal</Pill>}
+            <Pill icon={<Flame className="w-3.5 h-3.5" />} tone="gold">Streak +1</Pill>
+            {conv >= 50 && <Pill icon={<Award className="w-3.5 h-3.5" />} tone="gold">Closer · {conv}%</Pill>}
+          </div>
         )}
       </div>
-    </>
+
+      {/* Action */}
+      <Link
+        href="/log"
+        className="block px-4 py-3 font-extrabold text-[13px] flex items-center justify-center gap-2 transition-colors"
+        style={{
+          background: submitted ? "var(--color-bg)" : "var(--color-brand-red)",
+          color: submitted ? "var(--color-ink)" : "white",
+          borderTop: submitted ? "1px solid var(--color-line)" : "none",
+        }}
+      >
+        {submitted ? (
+          <><Edit3 className="w-3.5 h-3.5" /> Edit this report</>
+        ) : (
+          <><Edit3 className="w-3.5 h-3.5" /> Log this report <ArrowRight className="w-3.5 h-3.5" /></>
+        )}
+      </Link>
+    </div>
   );
 }
 
-function YesterdayDetail({ r, goal }: { r: DailyReport; goal: number }) {
+function PlaceholderCard({
+  icon, title, tagline,
+}: { icon: React.ReactNode; title: string; tagline: string }) {
+  return (
+    <div
+      className="rounded-2xl mb-3 px-4 py-3.5"
+      style={{
+        background: "white",
+        border: "1.5px dashed var(--color-line)",
+      }}
+    >
+      <div className="flex items-center gap-3">
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: "#F1F5F9", color: "var(--color-muted)" }}
+        >
+          {icon}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div
+            className="inline-flex items-center gap-1.5 font-extrabold text-[10px] uppercase mb-0.5"
+            style={{ color: "var(--color-muted)", letterSpacing: "0.14em" }}
+          >
+            <Sparkles className="w-3 h-3" />
+            Coming soon
+          </div>
+          <div className="font-black text-[15px]" style={{ color: "var(--color-muted)", letterSpacing: "-0.015em" }}>
+            {title}
+          </div>
+          <div className="font-bold text-[12px] mt-0.5" style={{ color: "var(--color-muted)" }}>
+            {tagline}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function YesterdayLine({ r, goal }: { r: DailyReport; goal: number }) {
   const conv = r.acquired > 0 ? Math.round((r.opened_same_day / r.acquired) * 100) : 0;
   const hitGoal = r.total_opened >= goal;
   return (
     <p
-      className="font-bold text-[15px]"
+      className="font-bold text-[14px]"
       style={{ color: "var(--color-ink)", lineHeight: 1.55, letterSpacing: "-0.005em" }}
     >
       <b className="num">{r.total_opened}</b> opened · <b className="num">{conv}%</b> same-day conversion

@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Edit3, Check, Flame, Award, MapPin, ArrowRight, Banknote, Users, Target, Clock, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { Plus, Check, MapPin, ArrowRight } from "lucide-react";
 import type { DailyReport } from "@/lib/types";
 import { useActiveEvents } from "@/lib/useActiveEvents";
+import { ReportTypeSheet } from "./ReportTypeSheet";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const DOW = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -27,19 +29,19 @@ export function HomeScreen({
   divisionId: string;
   amId: string;
 }) {
-  void amName; void amId;
+  void amName; void amId; void goal;
   const todayIso = new Date().toISOString().slice(0, 10);
   const submitted = today !== null;
   const activeEvents = useActiveEvents(divisionId);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
-  // The reports the AM can log today. Only Customer Acquisition is wired for now;
-  // others render as "coming soon" placeholders. Admin enables them later.
-  const activeCount = 1;
-  const doneCount = submitted ? 1 : 0;
+  const acquisitionSummary = submitted && today
+    ? `${today.total_opened} opened · ${new Date(today.submitted_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+    : undefined;
 
   return (
     <>
-      {/* Active campaign banner — appears live via realtime when admin creates an event */}
+      {/* Active campaign banner */}
       {activeEvents.length > 0 && (
         <div className="mb-3 -mx-2" style={{ marginTop: -8 }}>
           {activeEvents.map((ev) => (
@@ -85,61 +87,54 @@ export function HomeScreen({
       )}
 
       {/* Date + status */}
-      <div className="px-2 pt-6">
+      <div className="px-2 pt-10 flex flex-col">
         <div
           className="text-center font-extrabold text-[11px] uppercase"
           style={{ color: "var(--color-muted)", letterSpacing: "0.2em" }}
         >
           {fmtFullDate(todayIso)}
         </div>
-        <div className="text-center mt-2 font-bold text-[13px]" style={{ color: "var(--color-body)" }}>
-          {doneCount === activeCount
-            ? <>All reports logged today <Check className="inline w-3.5 h-3.5" style={{ color: "var(--color-funded)" }} /></>
-            : <><b className="num" style={{ color: "var(--color-ink)" }}>{doneCount} of {activeCount}</b> {activeCount === 1 ? "report" : "reports"} logged today</>
-          }
-        </div>
-      </div>
-
-      {/* Today's reports */}
-      <div
-        className="mx-2 mt-7 pt-5"
-        style={{ borderTop: "1px solid var(--color-line)" }}
-      >
         <div
-          className="font-extrabold text-[11px] uppercase mb-3"
-          style={{ color: "var(--color-muted)", letterSpacing: "0.16em" }}
+          className="text-center mt-3 font-black text-[26px]"
+          style={{ color: "var(--color-ink)", letterSpacing: "-0.025em", lineHeight: 1.2 }}
         >
-          Today's reports
+          {submitted
+            ? "All set for today."
+            : "What did you do today?"}
         </div>
-
-        {/* ACQUISITION — real, wired */}
-        <AcquisitionCard
-          goal={goal}
-          today={today}
-          submitted={submitted}
-        />
-
-        {/* PLACEHOLDERS */}
-        <PlaceholderCard
-          icon={<Users className="w-5 h-5" />}
-          title="Customer Retention"
-          tagline="Track follow-ups and at-risk accounts"
-        />
-        <PlaceholderCard
-          icon={<Target className="w-5 h-5" />}
-          title="Cross-selling"
-          tagline="Log products offered and taken"
-        />
+        {submitted && acquisitionSummary && (
+          <div className="text-center mt-2 font-bold text-[14px]" style={{ color: "var(--color-body)" }}>
+            Customer Acquisition · <span className="num" style={{ color: "var(--color-ink)" }}>{acquisitionSummary}</span>
+          </div>
+        )}
       </div>
 
-      {/* Yesterday strip */}
+      {/* Primary CTA */}
+      <div className="px-2 mt-8">
+        <button
+          onClick={() => setSheetOpen(true)}
+          className="w-full rounded-2xl py-4 text-[16px] font-black flex items-center justify-center gap-2 text-white transition-colors active:scale-[0.99]"
+          style={{ background: "var(--color-brand-red)", padding: "18px", letterSpacing: "-0.01em" }}
+        >
+          <Plus className="w-[20px] h-[20px]" strokeWidth={2.5} />
+          {submitted ? "Add another report" : "Add report"}
+        </button>
+        <div
+          className="text-center mt-2.5 text-[11px] font-bold"
+          style={{ color: "var(--color-muted)", letterSpacing: "0.01em" }}
+        >
+          Tap to choose a report type
+        </div>
+      </div>
+
+      {/* Yesterday context (only when nothing's logged today) */}
       {!submitted && yesterday && (
         <div
-          className="mx-2 mt-8 pt-5"
+          className="mx-2 mt-10 pt-5"
           style={{ borderTop: "1px solid var(--color-line)" }}
         >
           <div
-            className="font-extrabold text-[11px] uppercase mb-2.5"
+            className="font-extrabold text-[11px] uppercase mb-2"
             style={{ color: "var(--color-muted)", letterSpacing: "0.16em" }}
           >
             Yesterday
@@ -147,135 +142,14 @@ export function HomeScreen({
           <YesterdayLine r={yesterday} goal={goal} />
         </div>
       )}
+
+      <ReportTypeSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        acquisitionStatus={submitted ? "logged" : "pending"}
+        acquisitionSummary={acquisitionSummary}
+      />
     </>
-  );
-}
-
-function AcquisitionCard({
-  goal, today, submitted,
-}: { goal: number; today: DailyReport | null; submitted: boolean }) {
-  const time = submitted && today
-    ? new Date(today.submitted_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    : "";
-  const fromEarlier = today ? Math.max(0, today.total_opened - today.opened_same_day) : 0;
-  const conv = today && today.acquired > 0 ? Math.round((today.opened_same_day / today.acquired) * 100) : 0;
-  const hitGoal = today ? today.total_opened >= goal : false;
-
-  return (
-    <div
-      className="rounded-2xl mb-3 overflow-hidden"
-      style={{ background: "white", border: "1.5px solid var(--color-line)" }}
-    >
-      <div className="px-4 pt-3.5 pb-3 flex items-center gap-3">
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{ background: "rgba(206,17,38,0.08)", color: "var(--color-brand-red)" }}
-        >
-          <Banknote className="w-5 h-5" strokeWidth={2.25} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div
-            className="inline-flex items-center gap-1.5 font-extrabold text-[10px] uppercase mb-0.5"
-            style={{
-              color: submitted ? "var(--color-funded)" : "var(--color-pending)",
-              letterSpacing: "0.14em",
-            }}
-          >
-            {submitted ? (
-              <><Check className="w-3 h-3" strokeWidth={3} /> Logged · {time}</>
-            ) : (
-              <><span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--color-pending)" }} /> Pending</>
-            )}
-          </div>
-          <div className="font-black text-[15px]" style={{ color: "var(--color-ink)", letterSpacing: "-0.015em" }}>
-            Customer Acquisition
-          </div>
-        </div>
-      </div>
-
-      {/* Body */}
-      <div className="px-4 pb-3 border-t" style={{ borderColor: "var(--color-line)", paddingTop: 12 }}>
-        {submitted && today ? (
-          <p
-            className="font-bold text-[14px]"
-            style={{ color: "var(--color-ink)", lineHeight: 1.5, letterSpacing: "-0.005em" }}
-          >
-            <b className="num">{today.total_opened}</b> opened from <b className="num">{today.acquired}</b> acquired —{" "}
-            <b className="num">{today.opened_same_day}</b> today, <b className="num">{fromEarlier}</b> from earlier pipeline.
-          </p>
-        ) : (
-          <div
-            className="font-bold text-[13px]"
-            style={{ color: "var(--color-body)" }}
-          >
-            Daily target: <b className="num" style={{ color: "var(--color-ink)" }}>{goal} opened</b>
-          </div>
-        )}
-
-        {submitted && today && (
-          <div className="flex gap-1.5 flex-wrap mt-2.5">
-            {hitGoal && <Pill icon={<Check className="w-3.5 h-3.5" />} tone="green">Hit your goal</Pill>}
-            <Pill icon={<Flame className="w-3.5 h-3.5" />} tone="gold">Streak +1</Pill>
-            {conv >= 50 && <Pill icon={<Award className="w-3.5 h-3.5" />} tone="gold">Closer · {conv}%</Pill>}
-          </div>
-        )}
-      </div>
-
-      {/* Action */}
-      <Link
-        href="/log"
-        className="block px-4 py-3 font-extrabold text-[13px] flex items-center justify-center gap-2 transition-colors"
-        style={{
-          background: submitted ? "var(--color-bg)" : "var(--color-brand-red)",
-          color: submitted ? "var(--color-ink)" : "white",
-          borderTop: submitted ? "1px solid var(--color-line)" : "none",
-        }}
-      >
-        {submitted ? (
-          <><Edit3 className="w-3.5 h-3.5" /> Edit this report</>
-        ) : (
-          <><Edit3 className="w-3.5 h-3.5" /> Log this report <ArrowRight className="w-3.5 h-3.5" /></>
-        )}
-      </Link>
-    </div>
-  );
-}
-
-function PlaceholderCard({
-  icon, title, tagline,
-}: { icon: React.ReactNode; title: string; tagline: string }) {
-  return (
-    <div
-      className="rounded-2xl mb-3 px-4 py-3.5"
-      style={{
-        background: "white",
-        border: "1.5px dashed var(--color-line)",
-      }}
-    >
-      <div className="flex items-center gap-3">
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{ background: "#F1F5F9", color: "var(--color-muted)" }}
-        >
-          {icon}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div
-            className="inline-flex items-center gap-1.5 font-extrabold text-[10px] uppercase mb-0.5"
-            style={{ color: "var(--color-muted)", letterSpacing: "0.14em" }}
-          >
-            <Sparkles className="w-3 h-3" />
-            Coming soon
-          </div>
-          <div className="font-black text-[15px]" style={{ color: "var(--color-muted)", letterSpacing: "-0.015em" }}>
-            {title}
-          </div>
-          <div className="font-bold text-[12px] mt-0.5" style={{ color: "var(--color-muted)" }}>
-            {tagline}
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -290,21 +164,5 @@ function YesterdayLine({ r, goal }: { r: DailyReport; goal: number }) {
       <b className="num">{r.total_opened}</b> opened · <b className="num">{conv}%</b> same-day conversion
       {hitGoal && " · goal hit"}
     </p>
-  );
-}
-
-function Pill({ icon, tone, children }: { icon: React.ReactNode; tone: "green" | "gold"; children: React.ReactNode }) {
-  const style =
-    tone === "green"
-      ? { background: "#ECFDF5", color: "var(--color-funded)" }
-      : { background: "rgba(255,200,0,0.16)", color: "#92400E" };
-  return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-extrabold text-[11px]"
-      style={{ ...style, letterSpacing: "0.01em" }}
-    >
-      {icon}
-      {children}
-    </span>
   );
 }

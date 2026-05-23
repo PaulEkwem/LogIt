@@ -43,6 +43,35 @@ export type SessionShape = {
   pc?: Pc;
 };
 
+export type EventStatus = "upcoming" | "active" | "closed";
+
+export type Event = {
+  id: string;
+  division_id: string;
+  name: string;
+  location: string;
+  start_date: string;
+  end_date: string;
+  status: EventStatus;
+  created_by: string | null;
+  created_at: string;
+  closed_at: string | null;
+};
+
+export type EventReport = {
+  id: string;
+  event_id: string;
+  am_id: string;
+  acquired: number;
+  type_t1: number;
+  type_t3: number;
+  type_gt: number;
+  type_sm: number;
+  type_sk: number;
+  submitted_at: string;
+  edited_at: string | null;
+};
+
 export const ACCOUNT_TYPES = [
   { key: "t1", code: "T1", label: "Tier 1",   desc: "Standard savings" },
   { key: "gt", code: "GT", label: "GTCREATE", desc: "Creator account" },

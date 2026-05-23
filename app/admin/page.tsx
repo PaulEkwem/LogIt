@@ -10,9 +10,11 @@ export default async function AdminPage() {
 
   const { data: pc } = await supabase
     .from("pcs")
-    .select("id, name, pc_code, division:divisions(id, name)")
+    .select("id, name, pc_code, division_id, division:divisions(id, name)")
     .eq("id", meta.pc_id)
     .single();
+
+  const divisionId = (pc as { division_id?: string } | null)?.division_id ?? "";
 
   const { data: ams } = await supabase
     .from("account_managers")
@@ -40,6 +42,29 @@ export default async function AdminPage() {
   const totalAcquired = (todaysReports ?? []).reduce((s, r) => s + r.acquired, 0);
   const totalOpened = (todaysReports ?? []).reduce((s, r) => s + r.total_opened, 0);
 
+  // Campaigns
+  const { data: events } = await supabase
+    .from("events")
+    .select("id, name, location, start_date, end_date, status, created_at")
+    .eq("division_id", divisionId)
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  // Aggregate per active event (admin sees full picture, RLS allows it)
+  const eventList = await Promise.all(
+    (events ?? []).map(async (ev) => {
+      const { data: er } = await supabase
+        .from("event_reports")
+        .select("acquired, am_id")
+        .eq("event_id", ev.id);
+      return {
+        ...ev,
+        total_acquired: (er ?? []).reduce((s, r) => s + r.acquired, 0),
+        participants: new Set((er ?? []).map((r) => r.am_id)).size,
+      };
+    }),
+  );
+
   // @ts-expect-error nested supabase select
   const divisionName = pc?.division?.name ?? "";
   const pcName = pc?.name ?? "";
@@ -54,6 +79,7 @@ export default async function AdminPage() {
       submittedCount={submittedCount}
       totalAcquired={totalAcquired}
       totalOpened={totalOpened}
+      events={eventList}
     />
   );
 }

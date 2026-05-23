@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Edit3, Check, Flame, Award } from "lucide-react";
+import { Edit3, Check, Flame, Award, MapPin, ArrowRight } from "lucide-react";
 import type { DailyReport } from "@/lib/types";
+import { useActiveEvents } from "@/lib/useActiveEvents";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const DOW = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -16,20 +17,68 @@ export function HomeScreen({
   goal,
   today,
   yesterday,
+  divisionId,
+  amId,
 }: {
   amName: string;
   goal: number;
   today: DailyReport | null;
   yesterday: DailyReport | null;
+  divisionId: string;
+  amId: string;
 }) {
+  void amName;
+  void amId;
   const todayIso = new Date().toISOString().slice(0, 10);
   const submitted = today !== null;
+  const activeEvents = useActiveEvents(divisionId);
 
   const heroVal = submitted ? today!.total_opened : 0;
   const fillPct = Math.min(100, Math.round((heroVal / goal) * 100));
 
   return (
     <>
+      {/* Active campaign banner — appears live via realtime when admin creates an event */}
+      {activeEvents.length > 0 && (
+        <div className="mb-3 -mx-2" style={{ marginTop: -8 }}>
+          {activeEvents.map((ev) => (
+            <Link
+              key={ev.id}
+              href={`/event/${ev.id}`}
+              className="block px-4 py-3.5 rounded-2xl mb-2 transition-colors"
+              style={{
+                background: "linear-gradient(135deg, var(--color-brand-red), var(--color-brand-red-d))",
+                color: "white",
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ background: "rgba(255,200,0,0.2)" }}
+                >
+                  <MapPin className="w-[18px] h-[18px]" style={{ color: "var(--color-brand-gold)" }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div
+                    className="font-extrabold text-[10px] uppercase mb-0.5"
+                    style={{ color: "rgba(255,255,255,0.7)", letterSpacing: "0.12em" }}
+                  >
+                    Active campaign
+                  </div>
+                  <div className="font-black text-[15px] truncate" style={{ letterSpacing: "-0.015em" }}>
+                    {ev.name}
+                  </div>
+                  <div className="font-bold text-[12px]" style={{ color: "rgba(255,255,255,0.8)" }}>
+                    {ev.location}
+                  </div>
+                </div>
+                <ArrowRight className="w-[18px] h-[18px] flex-shrink-0" />
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+
       {/* Hero */}
       <div className="px-2 pt-9 flex flex-col">
         <div

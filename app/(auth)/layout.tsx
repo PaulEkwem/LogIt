@@ -20,16 +20,10 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
 
   if (!am) redirect("/");
 
-  // Streak + total XP via RPC + aggregate
+  // Streak via RPC
   const { data: streakData } = await supabase.rpc("current_streak", { target_am_id: am.id });
-  const { data: xpRows } = await supabase
-    .from("xp_ledger")
-    .select("amount")
-    .eq("am_id", am.id);
-  const totalXp = (xpRows ?? []).reduce((s, r) => s + (r.amount ?? 0), 0);
   const streak = typeof streakData === "number" ? streakData : 0;
 
-  const firstName = am.full_name.split(" ")[0];
   // @ts-expect-error supabase nested select typing
   const pcName: string = am.pc?.name ?? "";
   // @ts-expect-error supabase nested select typing
@@ -40,7 +34,6 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
   return (
     <>
       <Header
-        firstName={firstName}
         fullName={am.full_name}
         amCode={am.am_code}
         initials={am.initials}
@@ -49,7 +42,6 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
         pcCode={pcCode}
         divisionName={divisionName}
         streak={streak}
-        xp={totalXp}
       />
       <main className="px-4 pt-5" style={{ paddingBottom: 110 }}>
         {children}

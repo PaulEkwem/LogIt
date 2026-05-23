@@ -7,7 +7,6 @@ type Row = {
   opened: number;
   acquired: number;
   conv: number;
-  xp: number;
   isMe: boolean;
 };
 
@@ -185,10 +184,10 @@ function Standing({ row, rank }: { row: Row; rank: number }) {
           )}
         </div>
         <div
-          className="font-bold text-[11px] mt-0.5 num"
+          className="font-bold text-[11px] mt-0.5"
           style={{ color: "var(--color-muted)" }}
         >
-          {row.xp} XP
+          Code {row.am_code}
         </div>
       </div>
       <div

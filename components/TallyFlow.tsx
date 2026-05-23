@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { X, Plus, Minus, ArrowRight, Check, Award, CheckCircle2, Circle } from "lucide-react";
+import { X, Plus, Minus, ArrowRight, Check, Award, CheckCircle2, Circle, Flame } from "lucide-react";
 import { ACCOUNT_TYPES, type TypeKey } from "@/lib/types";
 
 type Existing = {
@@ -32,9 +32,10 @@ export function TallyFlow({ goal, existing }: { goal: number; existing: Existing
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [celebration, setCelebration] = useState<null | {
-    xpTotal: number;
-    breakdown: { label: string; amount: number; bonus?: boolean }[];
+    acquired: number;
+    totalOpened: number;
     convPct: number;
+    hitGoal: boolean;
   }>(null);
 
   const breakdownSum = Object.values(byType).reduce((s, v) => s + v, 0);
@@ -73,9 +74,10 @@ export function TallyFlow({ goal, existing }: { goal: number; existing: Existing
         return;
       }
       setCelebration({
-        xpTotal: data.xpTotal,
-        breakdown: data.breakdown,
+        acquired,
+        totalOpened,
         convPct,
+        hitGoal: !!data.hitGoal,
       });
     } catch {
       setError("Couldn't reach the server.");
@@ -85,7 +87,15 @@ export function TallyFlow({ goal, existing }: { goal: number; existing: Existing
   }
 
   if (celebration) {
-    return <Celebration {...celebration} onContinue={() => { router.push("/home"); router.refresh(); }} />;
+    return (
+      <Celebration
+        acquired={celebration.acquired}
+        totalOpened={celebration.totalOpened}
+        convPct={celebration.convPct}
+        hitGoal={celebration.hitGoal}
+        onContinue={() => { router.push("/home"); router.refresh(); }}
+      />
+    );
   }
 
   return (
@@ -332,19 +342,26 @@ function TypeStepRow({
 }
 
 function Celebration({
-  xpTotal, breakdown, convPct, onContinue,
+  acquired, totalOpened, convPct, hitGoal, onContinue,
 }: {
-  xpTotal: number;
-  breakdown: { label: string; amount: number; bonus?: boolean }[];
+  acquired: number;
+  totalOpened: number;
   convPct: number;
+  hitGoal: boolean;
   onContinue: () => void;
 }) {
   return (
     <section
-      className="fixed inset-0 z-[300] mx-auto max-w-[430px] flex flex-col px-7 py-15"
+      className="fixed z-[300] flex flex-col"
       style={{
+        inset: 0,
+        marginInline: "auto",
+        maxWidth: 430,
         background: "linear-gradient(165deg, #16A34A 0%, #15803D 100%)",
-        left: 0, right: 0, paddingTop: 60, paddingBottom: 32,
+        paddingTop: 60,
+        paddingBottom: 32,
+        paddingLeft: 28,
+        paddingRight: 28,
       }}
     >
       <div
@@ -355,6 +372,9 @@ function Celebration({
       </div>
       <div className="text-white font-black text-[30px]" style={{ letterSpacing: "-0.03em", lineHeight: 1.1 }}>
         Report submitted
+      </div>
+      <div className="text-white/70 font-bold text-[13px] mt-1.5">
+        {new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}
       </div>
 
       {convPct >= 50 && (
@@ -371,31 +391,38 @@ function Celebration({
       )}
 
       <div
-        className="rounded-2xl p-5.5 mt-7"
+        className="rounded-2xl mt-7 p-5"
         style={{
           background: "rgba(255,255,255,0.12)",
           border: "1px solid rgba(255,255,255,0.18)",
           backdropFilter: "blur(12px)",
         }}
       >
-        <div className="num text-center" style={{ color: "var(--color-brand-gold)", fontSize: 56, lineHeight: 1, letterSpacing: "-0.04em" }}>
-          +{xpTotal} XP
+        <div className="font-extrabold text-[11px] uppercase mb-3" style={{ color: "rgba(255,255,255,0.7)", letterSpacing: "0.12em" }}>
+          Today
         </div>
-        <div className="font-extrabold text-[11px] uppercase text-center mt-1.5" style={{ color: "rgba(255,255,255,0.7)", letterSpacing: "0.1em" }}>
-          Earned today
+        <div className="grid grid-cols-2 gap-3">
+          <SummaryStat label="Opened" value={totalOpened} primary />
+          <SummaryStat label="Acquired" value={acquired} />
         </div>
-        <div className="mt-4 pt-4 flex flex-col gap-2" style={{ borderTop: "1px solid rgba(255,255,255,0.15)" }}>
-          {breakdown.map((b, i) => (
-            <div
-              key={i}
-              className="flex justify-between font-bold text-[13px]"
-              style={{ color: b.bonus ? "var(--color-brand-gold)" : "rgba(255,255,255,0.85)" }}
-            >
-              <span>{b.label}</span>
-              <span className="num font-black" style={{ color: b.bonus ? "var(--color-brand-gold)" : "white" }}>+{b.amount}</span>
-            </div>
-          ))}
+        <div className="mt-3 pt-3 flex justify-between font-bold text-[13px]" style={{ borderTop: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.85)" }}>
+          <span>Same-day conversion</span>
+          <span className="num font-black text-white">{convPct}%</span>
         </div>
+        {hitGoal && (
+          <div className="mt-2 flex justify-between font-bold text-[13px]" style={{ color: "var(--color-brand-gold)" }}>
+            <span>Daily goal</span>
+            <span className="font-black">Hit ✓</span>
+          </div>
+        )}
+      </div>
+
+      <div
+        className="mt-5 text-center font-bold text-[14px]"
+        style={{ color: "rgba(255,255,255,0.85)", letterSpacing: "-0.005em" }}
+      >
+        <Flame className="inline w-4 h-4 mr-1.5" style={{ color: "var(--color-brand-gold)" }} />
+        Streak alive — +1 day
       </div>
 
       <button
@@ -406,5 +433,21 @@ function Celebration({
         See your stats <ArrowRight className="w-[18px] h-[18px]" />
       </button>
     </section>
+  );
+}
+
+function SummaryStat({ label, value, primary = false }: { label: string; value: number; primary?: boolean }) {
+  return (
+    <div
+      className="rounded-xl px-3 py-2.5"
+      style={{ background: primary ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.06)" }}
+    >
+      <div className="num text-white" style={{ fontSize: 34, lineHeight: 1, letterSpacing: "-0.04em" }}>
+        {value}
+      </div>
+      <div className="font-extrabold text-[10px] uppercase mt-1" style={{ color: "rgba(255,255,255,0.7)", letterSpacing: "0.1em" }}>
+        {label}
+      </div>
+    </div>
   );
 }

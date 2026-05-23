@@ -2,23 +2,12 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Flame, Zap, Trophy, KeyRound, LogOut, X } from "lucide-react";
-
-const LEVEL_NAMES = ["Newcomer", "Trainee", "Performer", "Rising Star", "Top Performer", "Division Lead"];
-
-function levelFromXp(xp: number) {
-  const level = Math.floor(xp / 500) + 1;
-  return {
-    n: level,
-    name: LEVEL_NAMES[Math.min(level - 1, LEVEL_NAMES.length - 1)],
-    xpInLevel: xp % 500,
-  };
-}
+import { Flame, KeyRound, LogOut, X } from "lucide-react";
 
 export function AccountSheet({
   open, onClose,
   fullName, amCode, initials, avatarColor, pcName, pcCode, divisionName,
-  streak, xp,
+  streak,
 }: {
   open: boolean;
   onClose: () => void;
@@ -30,10 +19,8 @@ export function AccountSheet({
   pcCode: string;
   divisionName: string;
   streak: number;
-  xp: number;
 }) {
   const router = useRouter();
-  const level = levelFromXp(xp);
 
   useEffect(() => {
     if (!open) return;
@@ -55,7 +42,6 @@ export function AccountSheet({
 
   return (
     <>
-      {/* Backdrop */}
       <div
         onClick={onClose}
         aria-hidden
@@ -67,7 +53,6 @@ export function AccountSheet({
         }}
       />
 
-      {/* Sheet */}
       <div
         role="dialog"
         aria-label="Account"
@@ -84,7 +69,6 @@ export function AccountSheet({
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
         }}
       >
-        {/* Drag handle */}
         <div
           onClick={onClose}
           className="flex justify-center pt-3 pb-2 cursor-pointer"
@@ -93,7 +77,6 @@ export function AccountSheet({
           <div className="w-10 h-1 rounded-full" style={{ background: "#CBD5E1" }} />
         </div>
 
-        {/* Close X (extra affordance, top right) */}
         <button
           onClick={onClose}
           aria-label="Close"
@@ -129,45 +112,17 @@ export function AccountSheet({
             </div>
           </div>
 
-          {/* Stats card */}
+          {/* Streak strip — only stat that survives */}
           <div
-            className="grid grid-cols-3 gap-1.5 mt-5 rounded-2xl p-1.5"
+            className="mt-5 rounded-2xl px-4 py-3 flex items-center justify-center gap-2.5"
             style={{ background: "white", border: "1.5px solid var(--color-line)" }}
           >
-            <Stat
-              icon={<Flame className="w-4 h-4" />}
-              value={streak}
-              label="Streak"
-              tone="gold"
-            />
-            <Stat
-              icon={<Zap className="w-4 h-4" />}
-              value={xp}
-              label="Total XP"
-              tone="gold"
-            />
-            <Stat
-              icon={<Trophy className="w-4 h-4" />}
-              value={`L${level.n}`}
-              label={level.name}
-              tone="ink"
-            />
-          </div>
-
-          {/* Level progress strip */}
-          <div className="mt-3 px-1">
-            <div className="h-1 rounded-full overflow-hidden" style={{ background: "#EEF2F7" }}>
-              <div
-                className="h-full rounded-full transition-[width] duration-500"
-                style={{
-                  width: `${(level.xpInLevel / 500) * 100}%`,
-                  background: "linear-gradient(90deg, #FFC800, #F59E0B)",
-                }}
-              />
-            </div>
-            <div className="text-center mt-1.5 font-bold text-[10px]" style={{ color: "var(--color-muted)", letterSpacing: "0.04em" }}>
-              {500 - level.xpInLevel} XP to Level {level.n + 1}
-            </div>
+            <Flame className="w-4 h-4" style={{ color: "var(--color-brand-gold-d)" }} strokeWidth={2.5} />
+            <span className="font-bold text-[13px]" style={{ color: "var(--color-body)" }}>
+              <b className="num" style={{ color: "var(--color-ink)" }}>{streak}</b>
+              {" "}
+              {streak === 1 ? "day" : "days"} on a streak
+            </span>
           </div>
 
           {/* Actions */}
@@ -193,25 +148,5 @@ export function AccountSheet({
         </div>
       </div>
     </>
-  );
-}
-
-function Stat({
-  icon, value, label, tone,
-}: { icon: React.ReactNode; value: string | number; label: string; tone: "gold" | "ink" }) {
-  const valueColor = tone === "gold" ? "var(--color-brand-gold-d)" : "var(--color-ink)";
-  return (
-    <div className="rounded-xl py-2.5 text-center" style={{ background: "var(--color-bg)" }}>
-      <div className="flex items-center justify-center" style={{ color: valueColor }}>{icon}</div>
-      <div className="num mt-1" style={{ fontSize: 22, color: valueColor, letterSpacing: "-0.03em", lineHeight: 1 }}>
-        {value}
-      </div>
-      <div
-        className="font-extrabold text-[9px] uppercase mt-1"
-        style={{ color: "var(--color-muted)", letterSpacing: "0.1em" }}
-      >
-        {label}
-      </div>
-    </div>
   );
 }

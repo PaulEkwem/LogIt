@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient, createSupabaseAdminClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type SubmitBody = {
   acquired: number;
@@ -67,40 +67,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: upErr?.message ?? "Failed to save report" }, { status: 500 });
   }
 
-  // Fetch goal for the AM
   const { data: amRow } = await supabase
     .from("account_managers")
     .select("daily_goal")
     .eq("id", amId)
     .single();
   const goal = amRow?.daily_goal ?? 15;
-
-  // Compute XP awards
-  const xpAcq = acquired * 5;
-  const xpOpen = total_opened * 10;
   const convPct = acquired > 0 ? Math.round((opened_same_day / acquired) * 100) : 0;
-  const xpConv = convPct >= 50 && acquired > 0 ? 30 : 0;
-  const xpGoal = total_opened >= goal ? 50 : 0;
-  const xpTotal = xpAcq + xpOpen + xpConv + xpGoal;
+  const hitGoal = total_opened >= goal;
 
-  // Wipe prior XP for this report, write fresh — admin client (xp_ledger has no client INSERT policy)
-  const admin = createSupabaseAdminClient();
-  await admin.from("xp_ledger").delete().eq("daily_report_id", report.id);
-  const rows: { am_id: string; amount: number; reason: string; daily_report_id: string }[] = [];
-  if (xpAcq)  rows.push({ am_id: amId, amount: xpAcq,  reason: "acquired",          daily_report_id: report.id });
-  if (xpOpen) rows.push({ am_id: amId, amount: xpOpen, reason: "opened",            daily_report_id: report.id });
-  if (xpConv) rows.push({ am_id: amId, amount: xpConv, reason: "conversion_bonus",  daily_report_id: report.id });
-  if (xpGoal) rows.push({ am_id: amId, amount: xpGoal, reason: "goal_hit",          daily_report_id: report.id });
-  if (rows.length) {
-    const { error: xpErr } = await admin.from("xp_ledger").insert(rows);
-    if (xpErr) return NextResponse.json({ error: xpErr.message }, { status: 500 });
-  }
-
-  const breakdown: { label: string; amount: number; bonus?: boolean }[] = [];
-  if (xpAcq)  breakdown.push({ label: `${acquired} acquired`,              amount: xpAcq });
-  if (xpOpen) breakdown.push({ label: `${total_opened} opened`,            amount: xpOpen });
-  if (xpConv) breakdown.push({ label: `${convPct}% same-day conversion`,  amount: xpConv, bonus: true });
-  if (xpGoal) breakdown.push({ label: `Daily goal hit`,                    amount: xpGoal, bonus: true });
-
-  return NextResponse.json({ ok: true, xpTotal, breakdown, convPct });
+  return NextResponse.json({ ok: true, convPct, hitGoal });
 }

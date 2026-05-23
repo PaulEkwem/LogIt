@@ -22,14 +22,6 @@ export default async function TeamPage() {
     .select("am_id, acquired, opened_same_day, total_opened")
     .eq("report_date", today);
 
-  // XP totals per AM
-  const { data: xp } = await supabase
-    .from("xp_ledger")
-    .select("am_id, amount");
-
-  const xpByAm = new Map<string, number>();
-  (xp ?? []).forEach((r) => xpByAm.set(r.am_id, (xpByAm.get(r.am_id) ?? 0) + (r.amount ?? 0)));
-
   const rows = (ams ?? []).map((am) => {
     const r = reports?.find((x) => x.am_id === am.id);
     const conv =
@@ -39,7 +31,6 @@ export default async function TeamPage() {
       opened: r?.total_opened ?? 0,
       acquired: r?.acquired ?? 0,
       conv,
-      xp: xpByAm.get(am.id) ?? 0,
       isMe: am.id === meta.am_id,
     };
   });

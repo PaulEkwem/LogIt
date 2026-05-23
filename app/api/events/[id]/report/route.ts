@@ -72,11 +72,13 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
 
   // XP: +5 per acquired + +20 participation bonus (paid once per event)
   const admin = createSupabaseAdminClient();
-  await admin.from("xp_ledger").delete().eq("report_id", report.id);
+  await admin.from("xp_ledger").delete().eq("event_report_id", report.id);
 
-  const rows: { am_id: string; amount: number; reason: string; report_id: string }[] = [];
-  if (acquired > 0) rows.push({ am_id: amId, amount: acquired * 5, reason: "acquired", report_id: report.id });
-  rows.push({ am_id: amId, amount: 20, reason: "acquired", report_id: report.id }); // participation
+  const rows: { am_id: string; amount: number; reason: string; event_report_id: string }[] = [];
+  if (acquired > 0) {
+    rows.push({ am_id: amId, amount: acquired * 5, reason: "event_acquired", event_report_id: report.id });
+  }
+  rows.push({ am_id: amId, amount: 20, reason: "event_participation", event_report_id: report.id });
   const { error: xpErr } = await admin.from("xp_ledger").insert(rows);
   if (xpErr) return NextResponse.json({ error: xpErr.message }, { status: 500 });
 

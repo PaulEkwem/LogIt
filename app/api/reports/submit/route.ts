@@ -85,12 +85,12 @@ export async function POST(request: Request) {
 
   // Wipe prior XP for this report, write fresh — admin client (xp_ledger has no client INSERT policy)
   const admin = createSupabaseAdminClient();
-  await admin.from("xp_ledger").delete().eq("report_id", report.id);
-  const rows: { am_id: string; amount: number; reason: string; report_id: string }[] = [];
-  if (xpAcq)  rows.push({ am_id: amId, amount: xpAcq,  reason: "acquired",          report_id: report.id });
-  if (xpOpen) rows.push({ am_id: amId, amount: xpOpen, reason: "opened",            report_id: report.id });
-  if (xpConv) rows.push({ am_id: amId, amount: xpConv, reason: "conversion_bonus",  report_id: report.id });
-  if (xpGoal) rows.push({ am_id: amId, amount: xpGoal, reason: "goal_hit",          report_id: report.id });
+  await admin.from("xp_ledger").delete().eq("daily_report_id", report.id);
+  const rows: { am_id: string; amount: number; reason: string; daily_report_id: string }[] = [];
+  if (xpAcq)  rows.push({ am_id: amId, amount: xpAcq,  reason: "acquired",          daily_report_id: report.id });
+  if (xpOpen) rows.push({ am_id: amId, amount: xpOpen, reason: "opened",            daily_report_id: report.id });
+  if (xpConv) rows.push({ am_id: amId, amount: xpConv, reason: "conversion_bonus",  daily_report_id: report.id });
+  if (xpGoal) rows.push({ am_id: amId, amount: xpGoal, reason: "goal_hit",          daily_report_id: report.id });
   if (rows.length) {
     const { error: xpErr } = await admin.from("xp_ledger").insert(rows);
     if (xpErr) return NextResponse.json({ error: xpErr.message }, { status: 500 });

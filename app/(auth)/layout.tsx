@@ -34,10 +34,23 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
   const pcName: string = am.pc?.name ?? "";
   // @ts-expect-error supabase nested select typing
   const pcCode: string = am.pc?.pc_code ?? "";
+  // @ts-expect-error supabase nested select typing
+  const divisionName: string = am.pc?.division?.name ?? "";
 
   return (
     <>
-      <Header who={`${firstName} · ${pcName} · PC ${pcCode}`} streak={streak} xp={totalXp} />
+      <Header
+        firstName={firstName}
+        fullName={am.full_name}
+        amCode={am.am_code}
+        initials={am.initials}
+        avatarColor={am.color}
+        pcName={pcName}
+        pcCode={pcCode}
+        divisionName={divisionName}
+        streak={streak}
+        xp={totalXp}
+      />
       <main className="px-4 pt-5" style={{ paddingBottom: 110 }}>
         {children}
       </main>

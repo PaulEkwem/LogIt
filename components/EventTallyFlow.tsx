@@ -102,7 +102,7 @@ export function EventTallyFlow({
 
       <div className="flex-1 px-6 pb-8 flex flex-col animate-[fadeIn_0.22s_ease-out]">
         <div className="font-extrabold text-[10px] uppercase mb-2" style={{ color: "var(--color-muted)", letterSpacing: "0.14em" }}>
-          Step {step} of 3 · {step === 1 ? "Acquired at event" : step === 2 ? "Opened so far" : "Breakdown"}
+          Step {step} of 3 · {step === 1 ? "Acquired at event" : step === 2 ? "Opened on-site" : "Breakdown"}
         </div>
 
         {step === 1 && (
@@ -127,15 +127,15 @@ export function EventTallyFlow({
         {step === 2 && (
           <>
             <div className="font-black text-[24px] mb-8" style={{ color: "var(--color-ink)", letterSpacing: "-0.025em", lineHeight: 1.25 }}>
-              Of those <span className="num">{acquired}</span>, how many have been opened so far?
+              Of those <span className="num">{acquired}</span>, how many were opened on-site?
             </div>
             <BigStepper value={totalOpened} onChange={setOpenedSafe} max={acquired} />
             <Encouragement>
               {totalOpened === 0
-                ? "Opened can be at the event venue or back at the branch later."
+                ? "On-site openings only — via GTWorld or Orange Tool Box during the event."
                 : totalOpened === acquired
-                  ? <>All <b className="num">{acquired}</b> opened. Closing the gap quickly.</>
-                  : <><b className="num">{totalOpened}</b> of <b className="num">{acquired}</b> opened — <b className="num">{Math.round((totalOpened / acquired) * 100)}%</b> conversion.</>
+                  ? <>All <b className="num">{acquired}</b> opened on-site. Closing the gap on the floor.</>
+                  : <><b className="num">{totalOpened}</b> of <b className="num">{acquired}</b> opened on-site — <b className="num">{Math.round((totalOpened / acquired) * 100)}%</b> conversion.</>
               }
             </Encouragement>
             <Footer onNext={() => setStep(3)} />
@@ -191,7 +191,7 @@ export function EventTallyFlow({
               </button>
               {totalOpened === 0 && (
                 <div className="text-center mt-2 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
-                  No opens yet? Submit with zeros — you can edit when openings come in.
+                  No on-site opens? Submit with zeros — you can edit while the campaign is active.
                 </div>
               )}
             </div>

@@ -109,7 +109,7 @@ export function EventTallyFlow({
         <div className="w-9" />
       </div>
 
-      <div className="flex-1 px-6 pb-8 flex flex-col animate-[fadeIn_0.22s_ease-out]">
+      <div className="flex-1 px-6 pb-8 flex flex-col animate-[fadeIn_0.22s_ease-out] overflow-y-auto" style={{ WebkitOverflowScrolling: "touch" }}>
         <div className="font-extrabold text-[10px] uppercase mb-2" style={{ color: "var(--color-muted)", letterSpacing: "0.14em" }}>
           Step {step} of {TOTAL_STEPS} · {step === 1 ? "Acquired at event" : step === 2 ? "Opened on-site" : step === 3 ? "Breakdown" : "POS prospects"}
         </div>

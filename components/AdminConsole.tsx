@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Shield, LogOut, Send, UserPlus, Pencil, CheckCircle2, MapPin, Calendar, Plus, X, Users } from "lucide-react";
+import Link from "next/link";
+import { Shield, LogOut, Send, UserPlus, Pencil, CheckCircle2, MapPin, Calendar, Plus, X, Users, ArrowRight } from "lucide-react";
 
 type AdminRow = {
   id: string;
@@ -88,14 +89,7 @@ export function AdminConsole({
     }
   }
 
-  async function closeEvent(id: string) {
-    await fetch(`/api/events/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "closed" }),
-    });
-    router.refresh();
-  }
+  // closeEvent moved to /admin/events/[id] recap page.
 
   const fillPct = rows.length > 0 ? Math.min(100, Math.round((submittedCount / rows.length) * 100)) : 0;
   const pendingCount = rows.length - submittedCount;
@@ -282,7 +276,7 @@ export function AdminConsole({
           )}
 
           {events.map((ev) => (
-            <EventCard key={ev.id} event={ev} onClose={() => closeEvent(ev.id)} />
+            <EventCard key={ev.id} event={ev} />
           ))}
         </Section>
 
@@ -358,15 +352,16 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
-function EventCard({ event, onClose }: { event: EventRow; onClose: () => void }) {
+function EventCard({ event }: { event: EventRow }) {
   const isActive = event.status === "active";
   const dateLabel = event.start_date === event.end_date
     ? fmtDateShort(event.start_date)
     : `${fmtDateShort(event.start_date)} – ${fmtDateShort(event.end_date)}`;
 
   return (
-    <div
-      className="rounded-2xl p-3.5 mt-2"
+    <Link
+      href={`/admin/events/${event.id}`}
+      className="block rounded-2xl p-3.5 mt-2 transition-transform active:scale-[0.995]"
       style={{
         background: "white",
         border: isActive ? "1.5px solid var(--color-brand-red)" : "1.5px solid var(--color-line)",
@@ -375,7 +370,7 @@ function EventCard({ event, onClose }: { event: EventRow; onClose: () => void })
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            {isActive && (
+            {isActive ? (
               <span
                 className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-black text-[9px] uppercase"
                 style={{ background: "#FEE2E2", color: "var(--color-brand-red)", letterSpacing: "0.08em" }}
@@ -383,8 +378,7 @@ function EventCard({ event, onClose }: { event: EventRow; onClose: () => void })
                 <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "var(--color-brand-red)" }} />
                 Live
               </span>
-            )}
-            {!isActive && (
+            ) : (
               <span
                 className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-black text-[9px] uppercase"
                 style={{ background: "#F1F5F9", color: "var(--color-muted)", letterSpacing: "0.08em" }}
@@ -413,17 +407,11 @@ function EventCard({ event, onClose }: { event: EventRow; onClose: () => void })
           <Users className="w-3 h-3" />
           {event.participants} participant{event.participants === 1 ? "" : "s"}
         </div>
-        {isActive && (
-          <button
-            onClick={onClose}
-            className="font-extrabold text-[11px] px-3 py-1.5 rounded-md"
-            style={{ background: "#FEE2E2", color: "var(--color-brand-red)" }}
-          >
-            Close campaign
-          </button>
-        )}
+        <div className="font-extrabold text-[11px] inline-flex items-center gap-1" style={{ color: "var(--color-brand-red)" }}>
+          Open recap <ArrowRight className="w-3 h-3" />
+        </div>
       </div>
-    </div>
+    </Link>
   );
 }
 

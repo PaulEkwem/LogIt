@@ -1,8 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
+import { MapPin, ArrowRight } from "lucide-react";
 import type { DailyReport } from "@/lib/types";
 import { ACCOUNT_TYPES } from "@/lib/types";
+
+export type CampaignSummary = {
+  event_id: string;
+  name: string;
+  location: string;
+  date: string;
+  status: string;
+  acquired: number;
+  opened: number;
+};
 
 type Range = "today" | "week" | "month" | "custom";
 type Metric = "opened" | "acquired";
@@ -32,7 +44,13 @@ function startOfMonthIso() {
   return d.toISOString().slice(0, 10);
 }
 
-export function ReportScreen({ history, goal }: { history: DailyReport[]; goal: number }) {
+export function ReportScreen({
+  history, goal, myCampaigns,
+}: {
+  history: DailyReport[];
+  goal: number;
+  myCampaigns: CampaignSummary[];
+}) {
   const [range, setRange] = useState<Range>("today");
   const [metric, setMetric] = useState<Metric>("opened");
   const [customFrom, setCustomFrom] = useState("");
@@ -199,6 +217,46 @@ export function ReportScreen({ history, goal }: { history: DailyReport[]; goal: 
           })}
         </div>
       </Section>
+
+      {myCampaigns.length > 0 && (
+        <Section label="My campaigns">
+          <div className="flex flex-col gap-2 mt-1.5">
+            {myCampaigns.map((c) => (
+              <Link
+                key={c.event_id}
+                href={`/event/${c.event_id}`}
+                className="rounded-2xl p-3.5 flex items-center gap-3 transition-transform active:scale-[0.995]"
+                style={{ background: "white", border: "1.5px solid var(--color-line)" }}
+              >
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{
+                    background: c.status === "active" ? "rgba(206,17,38,0.08)" : "#F1F5F9",
+                    color: c.status === "active" ? "var(--color-brand-red)" : "var(--color-muted)",
+                  }}
+                >
+                  <MapPin className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-extrabold text-[13px] truncate" style={{ color: "var(--color-ink)", letterSpacing: "-0.005em" }}>
+                    {c.name}
+                  </div>
+                  <div className="font-bold text-[11px] mt-0.5" style={{ color: "var(--color-muted)" }}>
+                    {c.location} · {fmtShort(c.date)}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="num text-[16px]" style={{ color: "var(--color-ink)", letterSpacing: "-0.02em", lineHeight: 1 }}>
+                    {c.opened}<span style={{ color: "var(--color-muted)", fontWeight: 800, fontSize: 11 }}> / {c.acquired}</span>
+                  </div>
+                  <div className="font-bold text-[10px] mt-1" style={{ color: "var(--color-muted)" }}>opened</div>
+                </div>
+                <ArrowRight className="w-4 h-4 flex-shrink-0" style={{ color: "var(--color-muted)" }} />
+              </Link>
+            ))}
+          </div>
+        </Section>
+      )}
     </>
   );
 }

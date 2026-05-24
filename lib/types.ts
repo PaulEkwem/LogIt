@@ -63,6 +63,7 @@ export type EventReport = {
   event_id: string;
   am_id: string;
   acquired: number;
+  total_opened: number;
   type_t1: number;
   type_t3: number;
   type_gt: number;

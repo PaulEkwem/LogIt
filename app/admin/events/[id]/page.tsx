@@ -18,7 +18,7 @@ export default async function AdminEventPage({ params }: { params: Promise<{ id:
   // Admin sees everything in their division (RLS allows it)
   const { data: reports } = await supabase
     .from("event_reports")
-    .select("id, acquired, total_opened, type_t1, type_t3, type_gt, type_sm, type_sk, submitted_at, edited_at, am:account_managers(id, full_name, initials, color, am_code, pc:pcs(id, name, pc_code))")
+    .select("id, acquired, total_opened, type_t1, type_t3, type_gt, type_sm, type_sk, pos_prospects, submitted_at, edited_at, am:account_managers(id, full_name, initials, color, am_code, pc:pcs(id, name, pc_code))")
     .eq("event_id", id)
     .order("acquired", { ascending: false });
 
@@ -32,6 +32,7 @@ export default async function AdminEventPage({ params }: { params: Promise<{ id:
     acquired: number;
     opened: number;
     types: { t1: number; t3: number; gt: number; sm: number; sk: number };
+    pos_prospects: { name: string; business_type: string; min_turnover: number }[];
   };
 
   type PcRow = {
@@ -77,6 +78,7 @@ export default async function AdminEventPage({ params }: { params: Promise<{ id:
       types: {
         t1: r.type_t1, t3: r.type_t3, gt: r.type_gt, sm: r.type_sm, sk: r.type_sk,
       },
+      pos_prospects: (r.pos_prospects ?? []) as { name: string; business_type: string; min_turnover: number }[],
     });
     totalAcquired += r.acquired;
     totalOpened += r.total_opened;

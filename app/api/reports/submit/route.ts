@@ -1,12 +1,32 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+type PosProspect = { name: string; business_type: string; min_turnover: number };
+
 type SubmitBody = {
   acquired: number;
   opened_same_day: number;
   total_opened: number;
   types: { t1: number; gt: number; t3: number; sm: number; sk: number };
+  pos_prospects?: PosProspect[];
 };
+
+function validatePos(rows: unknown): { ok: true; data: PosProspect[] } | { ok: false; error: string } {
+  if (rows === undefined) return { ok: true, data: [] };
+  if (!Array.isArray(rows)) return { ok: false, error: "pos_prospects must be an array" };
+  const out: PosProspect[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i] as { name?: unknown; business_type?: unknown; min_turnover?: unknown };
+    const name = typeof r.name === "string" ? r.name.trim() : "";
+    const bt = typeof r.business_type === "string" ? r.business_type.trim() : "";
+    const tv = typeof r.min_turnover === "number" ? r.min_turnover : 0;
+    if (!name || !bt || !Number.isFinite(tv) || tv < 0) {
+      return { ok: false, error: `pos_prospects[${i}]: name, business_type, and min_turnover required` };
+    }
+    out.push({ name, business_type: bt, min_turnover: Math.floor(tv) });
+  }
+  return { ok: true, data: out };
+}
 
 export async function POST(request: Request) {
   let body: SubmitBody;
@@ -40,6 +60,9 @@ export async function POST(request: Request) {
     if (!Number.isInteger(v) || v < 0) return NextResponse.json({ error: "Invalid type counts" }, { status: 400 });
   }
 
+  const posCheck = validatePos(body.pos_prospects);
+  if (!posCheck.ok) return NextResponse.json({ error: posCheck.error }, { status: 400 });
+
   const today = new Date().toISOString().slice(0, 10);
 
   // Upsert via user session (RLS enforces am_id == auth_am_id() and report_date == today)
@@ -57,6 +80,7 @@ export async function POST(request: Request) {
         type_gt: types.gt,
         type_sm: types.sm,
         type_sk: types.sk,
+        pos_prospects: posCheck.data,
         edited_at: new Date().toISOString(),
       },
       { onConflict: "am_id,report_date" },

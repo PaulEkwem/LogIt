@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Plus, Minus, ArrowRight, Check, CheckCircle2, Circle } from "lucide-react";
-import { ACCOUNT_TYPES, type TypeKey } from "@/lib/types";
+import { ACCOUNT_TYPES, type PosProspect, type TypeKey } from "@/lib/types";
+import { PosProspectStep, cleanProspects, validateProspects } from "./PosProspectStep";
 
 type ExistingEventReport = {
   acquired: number;
@@ -13,7 +14,10 @@ type ExistingEventReport = {
   type_gt: number;
   type_sm: number;
   type_sk: number;
+  pos_prospects?: PosProspect[];
 } | null;
+
+const TOTAL_STEPS = 4;
 
 export function EventTallyFlow({
   eventId, existing, onClose,
@@ -33,6 +37,7 @@ export function EventTallyFlow({
     sm: existing?.type_sm ?? 0,
     sk: existing?.type_sk ?? 0,
   });
+  const [posProspects, setPosProspects] = useState<PosProspect[]>(existing?.pos_prospects ?? []);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,12 +53,16 @@ export function EventTallyFlow({
       setError("Breakdown must sum to opened.");
       return;
     }
+    const cleanedPos = cleanProspects(posProspects);
+    const posErr = validateProspects(cleanedPos);
+    if (posErr) { setError(posErr); return; }
+
     setSubmitting(true);
     try {
       const res = await fetch(`/api/events/${eventId}/report`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ acquired, total_opened: totalOpened, types: byType }),
+        body: JSON.stringify({ acquired, total_opened: totalOpened, types: byType, pos_prospects: cleanedPos }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -89,10 +98,10 @@ export function EventTallyFlow({
           <X className="w-[18px] h-[18px]" />
         </button>
         <div className="flex gap-1.5">
-          {[1, 2, 3].map((n) => (
+          {[1, 2, 3, 4].map((n) => (
             <span
               key={n}
-              className="w-7 h-1 rounded-full transition-colors"
+              className="w-6 h-1 rounded-full transition-colors"
               style={{ background: n <= step ? "var(--color-brand-red)" : "var(--color-line)" }}
             />
           ))}
@@ -102,7 +111,7 @@ export function EventTallyFlow({
 
       <div className="flex-1 px-6 pb-8 flex flex-col animate-[fadeIn_0.22s_ease-out]">
         <div className="font-extrabold text-[10px] uppercase mb-2" style={{ color: "var(--color-muted)", letterSpacing: "0.14em" }}>
-          Step {step} of 3 · {step === 1 ? "Acquired at event" : step === 2 ? "Opened on-site" : "Breakdown"}
+          Step {step} of {TOTAL_STEPS} · {step === 1 ? "Acquired at event" : step === 2 ? "Opened on-site" : step === 3 ? "Breakdown" : "POS prospects"}
         </div>
 
         {step === 1 && (
@@ -175,25 +184,45 @@ export function EventTallyFlow({
                   : <Circle className="w-3.5 h-3.5" />}
               </span>
             </div>
+            <div className="mt-5">
+              <button
+                onClick={() => setStep(4)}
+                disabled={breakdownSum !== totalOpened}
+                className="w-full rounded-2xl py-4 text-[16px] font-black flex items-center justify-center gap-2 text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ background: "var(--color-brand-red)", padding: "18px", letterSpacing: "-0.01em" }}
+              >
+                Next <ArrowRight className="w-[18px] h-[18px]" />
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 4 && (
+          <>
+            <PosProspectStep
+              prospects={posProspects}
+              onChange={setPosProspects}
+              contextLabel="at this event"
+            />
             {error && (
               <div className="text-center mt-3 text-[13px] font-bold" style={{ color: "#DC2626" }}>
                 {error}
               </div>
             )}
-            <div className="mt-5">
+            <div className="mt-6">
               <button
                 onClick={submit}
-                disabled={submitting || breakdownSum !== totalOpened}
-                className="w-full rounded-2xl py-4 text-[16px] font-black flex items-center justify-center gap-2 transition-colors text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={submitting}
+                className="w-full rounded-2xl py-4 text-[16px] font-black flex items-center justify-center gap-2 transition-colors text-white disabled:opacity-40"
                 style={{ background: "var(--color-brand-red)", padding: "18px", letterSpacing: "-0.01em" }}
               >
                 <Check className="w-[18px] h-[18px]" /> {submitting ? "Saving…" : "Submit"}
               </button>
-              {totalOpened === 0 && (
-                <div className="text-center mt-2 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
-                  No on-site opens? Submit with zeros — you can edit while the campaign is active.
-                </div>
-              )}
+              <div className="text-center mt-2 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
+                {posProspects.length === 0
+                  ? "No POS at this event? Just tap submit."
+                  : `Submitting with ${posProspects.length} POS prospect${posProspects.length === 1 ? "" : "s"}.`}
+              </div>
             </div>
           </>
         )}

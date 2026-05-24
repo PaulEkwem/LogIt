@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowLeft, MapPin, Calendar, Users, Send, FileDown, Lock } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, Users, Send, FileDown, Lock, Store } from "lucide-react";
 import { ACCOUNT_TYPES, type Event } from "@/lib/types";
+import { formatNgn } from "./PosProspectStep";
 
 type AmRow = {
   id: string;
@@ -15,6 +16,7 @@ type AmRow = {
   acquired: number;
   opened: number;
   types: { t1: number; t3: number; gt: number; sm: number; sk: number };
+  pos_prospects: { name: string; business_type: string; min_turnover: number }[];
 };
 
 type PcRow = {
@@ -240,6 +242,56 @@ export function AdminEventRecap({
             );
           })}
         </div>
+
+        {/* POS prospects */}
+        {(() => {
+          const allPos = byPc.flatMap((pc) => pc.ams.flatMap((am) => am.pos_prospects.map((p) => ({ ...p, am }))));
+          if (allPos.length === 0) return null;
+          return (
+            <div
+              className="mx-2 mt-8 pt-5"
+              style={{ borderTop: "1px solid var(--color-line)" }}
+            >
+              <div
+                className="font-extrabold text-[11px] uppercase mb-3 flex items-center gap-1.5"
+                style={{ color: "var(--color-muted)", letterSpacing: "0.16em" }}
+              >
+                <Store className="w-3 h-3" /> POS prospects · {allPos.length}
+              </div>
+              <div className="flex flex-col gap-2">
+                {allPos.map((p, i) => (
+                  <div
+                    key={i}
+                    className="rounded-2xl p-3.5 grid items-center gap-3"
+                    style={{
+                      background: "white",
+                      border: "1.5px solid var(--color-line)",
+                      gridTemplateColumns: "auto 1fr auto",
+                    }}
+                  >
+                    <div
+                      className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: "rgba(15,23,42,0.06)", color: "var(--color-ink)" }}
+                    >
+                      <Store className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-black text-[14px] truncate" style={{ color: "var(--color-ink)", letterSpacing: "-0.01em" }}>
+                        {p.name}
+                      </div>
+                      <div className="font-bold text-[11px] truncate" style={{ color: "var(--color-muted)" }}>
+                        {p.business_type} · via {p.am.full_name.split(" ")[0]} ({p.am.am_code})
+                      </div>
+                    </div>
+                    <div className="font-extrabold text-[13px] num text-right" style={{ color: "var(--color-ink)" }}>
+                      {formatNgn(p.min_turnover)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Actions */}
         <div className="mx-2 mt-8 pt-5 flex flex-col gap-2.5" style={{ borderTop: "1px solid var(--color-line)" }}>

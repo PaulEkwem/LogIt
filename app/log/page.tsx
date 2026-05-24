@@ -22,7 +22,7 @@ export default async function LogPage() {
 
   const { data: existing } = await supabase
     .from("daily_reports")
-    .select("acquired, opened_same_day, total_opened, type_t1, type_t3, type_gt, type_sm, type_sk")
+    .select("acquired, opened_same_day, total_opened, type_t1, type_t3, type_gt, type_sm, type_sk, pos_prospects")
     .eq("am_id", meta.am_id)
     .eq("report_date", today)
     .maybeSingle();

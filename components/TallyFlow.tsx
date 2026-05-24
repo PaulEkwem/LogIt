@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Plus, Minus, ArrowRight, Check, Award, CheckCircle2, Circle, Flame } from "lucide-react";
-import { ACCOUNT_TYPES, type TypeKey } from "@/lib/types";
+import { ACCOUNT_TYPES, type PosProspect, type TypeKey } from "@/lib/types";
+import { PosProspectStep, cleanProspects, validateProspects } from "./PosProspectStep";
 
 type Existing = {
   acquired: number;
@@ -14,7 +15,10 @@ type Existing = {
   type_gt: number;
   type_sm: number;
   type_sk: number;
+  pos_prospects?: PosProspect[];
 } | null;
+
+const TOTAL_STEPS = 5;
 
 export function TallyFlow({ goal, existing }: { goal: number; existing: Existing }) {
   const router = useRouter();
@@ -29,6 +33,7 @@ export function TallyFlow({ goal, existing }: { goal: number; existing: Existing
     sm: existing?.type_sm ?? 0,
     sk: existing?.type_sk ?? 0,
   });
+  const [posProspects, setPosProspects] = useState<PosProspect[]>(existing?.pos_prospects ?? []);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [celebration, setCelebration] = useState<null | {
@@ -56,6 +61,10 @@ export function TallyFlow({ goal, existing }: { goal: number; existing: Existing
       setError("Per-type breakdown must sum to total opened.");
       return;
     }
+    const cleanedPos = cleanProspects(posProspects);
+    const posErr = validateProspects(cleanedPos);
+    if (posErr) { setError(posErr); return; }
+
     setSubmitting(true);
     try {
       const res = await fetch("/api/reports/submit", {
@@ -66,6 +75,7 @@ export function TallyFlow({ goal, existing }: { goal: number; existing: Existing
           opened_same_day: openedSameDay,
           total_opened: totalOpened,
           types: byType,
+          pos_prospects: cleanedPos,
         }),
       });
       const data = await res.json();
@@ -113,10 +123,10 @@ export function TallyFlow({ goal, existing }: { goal: number; existing: Existing
           <X className="w-[18px] h-[18px]" />
         </button>
         <div className="flex gap-1.5">
-          {[1, 2, 3, 4].map((n) => (
+          {[1, 2, 3, 4, 5].map((n) => (
             <span
               key={n}
-              className="w-7 h-1 rounded-full transition-colors"
+              className="w-5 h-1 rounded-full transition-colors"
               style={{ background: n <= step ? "var(--color-brand-red)" : "var(--color-line)" }}
             />
           ))}
@@ -126,7 +136,7 @@ export function TallyFlow({ goal, existing }: { goal: number; existing: Existing
 
       <div className="flex-1 px-6 pb-8 flex flex-col animate-[fadeIn_0.22s_ease-out]">
         <div className="font-extrabold text-[10px] uppercase mb-2" style={{ color: "var(--color-muted)", letterSpacing: "0.14em" }}>
-          Step {step} of 4 · {step === 1 ? "Acquisitions" : step === 2 ? "Same-day conversion" : step === 3 ? "Total openings" : "Breakdown"}
+          Step {step} of {TOTAL_STEPS} · {step === 1 ? "Acquisitions" : step === 2 ? "Same-day conversion" : step === 3 ? "Total openings" : step === 4 ? "Breakdown" : "POS prospects"}
         </div>
 
         {step === 1 && (
@@ -206,20 +216,45 @@ export function TallyFlow({ goal, existing }: { goal: number; existing: Existing
                 {breakdownSum === totalOpened && totalOpened > 0 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
               </span>
             </div>
+            <div className="mt-5">
+              <button
+                onClick={() => setStep(5)}
+                disabled={breakdownSum !== totalOpened || totalOpened === 0}
+                className="w-full rounded-2xl py-4 text-[16px] font-black flex items-center justify-center gap-2 text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ background: "var(--color-brand-red)", padding: "18px", letterSpacing: "-0.01em" }}
+              >
+                Next <ArrowRight className="w-[18px] h-[18px]" />
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 5 && (
+          <>
+            <PosProspectStep
+              prospects={posProspects}
+              onChange={setPosProspects}
+              contextLabel="today"
+            />
             {error && (
               <div className="text-center mt-3 text-[13px] font-bold" style={{ color: "#DC2626" }}>
                 {error}
               </div>
             )}
-            <div className="mt-5">
+            <div className="mt-6">
               <button
                 onClick={submit}
-                disabled={submitting || breakdownSum !== totalOpened || totalOpened === 0}
-                className="w-full rounded-2xl py-4 text-[16px] font-black flex items-center justify-center gap-2 transition-colors text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={submitting}
+                className="w-full rounded-2xl py-4 text-[16px] font-black flex items-center justify-center gap-2 transition-colors text-white disabled:opacity-40"
                 style={{ background: "var(--color-brand-red)", padding: "18px", letterSpacing: "-0.01em" }}
               >
                 <Check className="w-[18px] h-[18px]" /> {submitting ? "Submitting…" : "Submit report"}
               </button>
+              <div className="text-center mt-2 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
+                {posProspects.length === 0
+                  ? "No POS today? Just tap submit."
+                  : `Submitting with ${posProspects.length} POS prospect${posProspects.length === 1 ? "" : "s"}.`}
+              </div>
             </div>
           </>
         )}

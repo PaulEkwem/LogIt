@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { MapPin, Calendar, Plus, Edit3, Lock } from "lucide-react";
-import { ACCOUNT_TYPES, type Event } from "@/lib/types";
+import { MapPin, Calendar, Plus, Edit3, Lock, Store } from "lucide-react";
+import { ACCOUNT_TYPES, type Event, type PosProspect } from "@/lib/types";
 import { EventTallyFlow } from "./EventTallyFlow";
+import { formatNgn } from "./PosProspectStep";
 
 type OwnReport = {
   acquired: number;
@@ -13,6 +14,7 @@ type OwnReport = {
   type_gt: number;
   type_sm: number;
   type_sk: number;
+  pos_prospects: PosProspect[];
   submitted_at: string;
   edited_at: string | null;
 } | null;
@@ -115,6 +117,35 @@ export function EventScreen({
                     </span>
                   );
                 })}
+              </div>
+            )}
+
+            {/* POS prospects */}
+            {ownReport.pos_prospects && ownReport.pos_prospects.length > 0 && (
+              <div className="mt-4 pt-3" style={{ borderTop: "1px solid #F1F5F9" }}>
+                <div
+                  className="inline-flex items-center gap-1.5 font-extrabold text-[10px] uppercase mb-2"
+                  style={{ color: "var(--color-muted)", letterSpacing: "0.14em" }}
+                >
+                  <Store className="w-3 h-3" /> POS prospects · {ownReport.pos_prospects.length}
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {ownReport.pos_prospects.map((p, i) => (
+                    <div key={i} className="flex items-baseline justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-extrabold text-[13px] truncate" style={{ color: "var(--color-ink)", letterSpacing: "-0.005em" }}>
+                          {p.name}
+                        </div>
+                        <div className="font-bold text-[11px]" style={{ color: "var(--color-muted)" }}>
+                          {p.business_type}
+                        </div>
+                      </div>
+                      <div className="font-extrabold text-[12px] num" style={{ color: "var(--color-body)" }}>
+                        {formatNgn(p.min_turnover)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

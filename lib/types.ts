@@ -21,6 +21,12 @@ export type AM = {
   archived_at: string | null;
 };
 
+export type PosProspect = {
+  name: string;
+  business_type: string;
+  min_turnover: number; // NGN per month
+};
+
 export type DailyReport = {
   id: string;
   am_id: string;
@@ -33,6 +39,7 @@ export type DailyReport = {
   type_gt: number;
   type_sm: number;
   type_sk: number;
+  pos_prospects: PosProspect[];
   submitted_at: string;
   edited_at: string | null;
 };
@@ -69,6 +76,7 @@ export type EventReport = {
   type_gt: number;
   type_sm: number;
   type_sk: number;
+  pos_prospects: PosProspect[];
   submitted_at: string;
   edited_at: string | null;
 };

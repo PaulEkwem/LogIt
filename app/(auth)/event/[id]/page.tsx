@@ -24,7 +24,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
   // AM sees only their own report — RLS enforces this too, but we query explicitly.
   const { data: ownReport } = await supabase
     .from("event_reports")
-    .select("acquired, total_opened, type_t1, type_t3, type_gt, type_sm, type_sk, submitted_at, edited_at")
+    .select("acquired, total_opened, type_t1, type_t3, type_gt, type_sm, type_sk, pos_prospects, submitted_at, edited_at")
     .eq("event_id", id)
     .eq("am_id", meta.am_id)
     .maybeSingle();

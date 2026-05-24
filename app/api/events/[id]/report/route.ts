@@ -11,10 +11,12 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id: eventId } = await ctx.params;
 
+  type PosProspect = { name: string; business_type: string; min_turnover: number };
   let body: {
     acquired?: number;
     total_opened?: number;
     types?: { t1?: number; t3?: number; gt?: number; sm?: number; sk?: number };
+    pos_prospects?: PosProspect[];
   };
   try { body = await request.json(); } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
@@ -54,6 +56,24 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     if (!Number.isInteger(v) || v < 0) return NextResponse.json({ error: "Invalid type counts" }, { status: 400 });
   }
 
+  // Validate POS prospects
+  let posClean: PosProspect[] = [];
+  if (body.pos_prospects !== undefined) {
+    if (!Array.isArray(body.pos_prospects)) {
+      return NextResponse.json({ error: "pos_prospects must be an array" }, { status: 400 });
+    }
+    for (let i = 0; i < body.pos_prospects.length; i++) {
+      const r = body.pos_prospects[i];
+      const name = typeof r.name === "string" ? r.name.trim() : "";
+      const bt = typeof r.business_type === "string" ? r.business_type.trim() : "";
+      const tv = typeof r.min_turnover === "number" ? r.min_turnover : 0;
+      if (!name || !bt || !Number.isFinite(tv) || tv < 0) {
+        return NextResponse.json({ error: `pos_prospects[${i}]: name, business_type, and min_turnover required` }, { status: 400 });
+      }
+      posClean.push({ name, business_type: bt, min_turnover: Math.floor(tv) });
+    }
+  }
+
   const { data: ev } = await supabase.from("events").select("id, status").eq("id", eventId).maybeSingle();
   if (!ev) return NextResponse.json({ error: "Event not found" }, { status: 404 });
   if (ev.status === "closed") return NextResponse.json({ error: "Event is closed" }, { status: 400 });
@@ -71,6 +91,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
         type_gt: types.gt,
         type_sm: types.sm,
         type_sk: types.sk,
+        pos_prospects: posClean,
         edited_at: new Date().toISOString(),
       },
       { onConflict: "event_id,am_id" },

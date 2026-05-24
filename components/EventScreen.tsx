@@ -156,15 +156,6 @@ export function EventScreen({
         )}
       </div>
 
-      {/* Privacy disclaimer */}
-      <div
-        className="mx-2 mt-8 pt-5 text-center font-bold text-[12px]"
-        style={{ borderTop: "1px solid var(--color-line)", color: "var(--color-muted)", lineHeight: 1.5 }}
-      >
-        Your admin sees the full team breakdown across all PCs.<br />
-        You only see your own submission.
-      </div>
-
       {/* Tally flow */}
       {flowOpen && (
         <EventTallyFlow

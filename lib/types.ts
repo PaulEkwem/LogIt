@@ -74,10 +74,10 @@ export type EventReport = {
 };
 
 export const ACCOUNT_TYPES = [
+  { key: "sm", code: "SM", label: "SME",      desc: "Business account" },
+  { key: "t3", code: "T3", label: "Tier 3",   desc: "Full KYC current" },
   { key: "t1", code: "T1", label: "Tier 1",   desc: "Standard savings" },
   { key: "gt", code: "GT", label: "GTCREATE", desc: "Creator account" },
-  { key: "t3", code: "T3", label: "Tier 3",   desc: "Full KYC current" },
-  { key: "sm", code: "SM", label: "SME",      desc: "Business account" },
   { key: "sk", code: "SK", label: "SKS",      desc: "School fees scheme" },
 ] as const;
 

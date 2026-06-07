@@ -134,7 +134,7 @@ export function TallyFlow({ goal, existing }: { goal: number; existing: Existing
         <div className="w-9" />
       </div>
 
-      <div className="flex-1 px-6 pb-8 flex flex-col animate-[fadeIn_0.22s_ease-out] overflow-y-auto" style={{ WebkitOverflowScrolling: "touch" }}>
+      <div className="flex-1 min-h-0 px-6 pb-8 flex flex-col animate-[fadeIn_0.22s_ease-out] overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch" }}>
         <div className="font-extrabold text-[10px] uppercase mb-2" style={{ color: "var(--color-muted)", letterSpacing: "0.14em" }}>
           Step {step} of {TOTAL_STEPS} · {step === 1 ? "Acquisitions" : step === 2 ? "Same-day conversion" : step === 3 ? "Total openings" : step === 4 ? "Breakdown" : "POS prospects"}
         </div>

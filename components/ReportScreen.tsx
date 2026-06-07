@@ -219,7 +219,7 @@ export function ReportScreen({
       </Section>
 
       {myCampaigns.length > 0 && (
-        <Section label="My campaigns">
+        <Section label="Recent event">
           <div className="flex flex-col gap-2 mt-1.5">
             {myCampaigns.map((c) => (
               <Link

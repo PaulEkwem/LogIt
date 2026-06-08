@@ -30,6 +30,11 @@ const SYNTH_DOMAIN = "logit.invalid";
 const PIN = "1234";
 const ADMIN_PWD = "admin2026";
 
+// Mirror of lib/pin.ts — Supabase enforces a 6-char min password length,
+// so we pad the 4-digit PIN before storing. The login API does the same.
+const PIN_PREFIX = "lgt-";
+const passwordFromPin = (pin) => `${PIN_PREFIX}${pin}`;
+
 const DIVISION = "SME LAGOS MAINLAND DIVISION 1";
 
 // ============================================================================
@@ -161,8 +166,13 @@ async function upsertAuthUser({ email, password, app_metadata, user_metadata }) 
   const { data: existing } = await sb.auth.admin.listUsers({ page: 1, perPage: 1000 });
   const found = existing?.users?.find((u) => u.email === email);
   if (found) {
-    await sb.auth.admin.updateUserById(found.id, { password, app_metadata, user_metadata });
-    return found.id;
+    // Preserve onboarding_completed if the user has already finished onboarding —
+    // re-running the seed shouldn't kick a real user back through the flow.
+    const prevOnboarded = (found.app_metadata && found.app_metadata.onboarding_completed) === true;
+    const merged = { ...app_metadata };
+    if (prevOnboarded) merged.onboarding_completed = true;
+    await sb.auth.admin.updateUserById(found.id, { password, app_metadata: merged, user_metadata });
+    return { id: found.id, preservedOnboarding: prevOnboarded };
   }
   const { data, error } = await sb.auth.admin.createUser({
     email,
@@ -172,7 +182,7 @@ async function upsertAuthUser({ email, password, app_metadata, user_metadata }) 
     user_metadata,
   });
   if (error) throw error;
-  return data.user.id;
+  return { id: data.user.id, preservedOnboarding: false };
 }
 
 async function main() {
@@ -209,7 +219,7 @@ async function main() {
   }
 
   console.log("→ Admin (Blessing Awom, code 3000, division-wide)");
-  const adminId = await upsertAuthUser({
+  const adminResult = await upsertAuthUser({
     email: `admin@${SYNTH_DOMAIN}`,
     password: ADMIN_PWD,
     app_metadata: {
@@ -224,7 +234,8 @@ async function main() {
       admin_code: "3000",
     },
   });
-  console.log("  ", adminId, `admin@${SYNTH_DOMAIN}`);
+  console.log("  ", adminResult.id, `admin@${SYNTH_DOMAIN}`,
+    adminResult.preservedOnboarding ? "(onboarding kept)" : "");
 
   console.log(`→ AMs (${AMS.length})`);
   for (const am of AMS) {
@@ -235,9 +246,9 @@ async function main() {
     }
     const email = `${am.code}@${SYNTH_DOMAIN}`;
     const full_name = [am.first_name, am.last_name].filter(Boolean).join(" ");
-    const userId = await upsertAuthUser({
+    const result = await upsertAuthUser({
       email,
-      password: PIN,
+      password: passwordFromPin(PIN),
       app_metadata: {
         role: "am",
         am_code: am.code,
@@ -250,6 +261,7 @@ async function main() {
         team_label: am.team_label ?? pc.name,
       },
     });
+    const userId = result.id;
 
     const { data: amRow, error: amErr } = await sb
       .from("account_managers")
@@ -265,7 +277,8 @@ async function main() {
           initials: initialsFor(am.first_name, am.last_name),
           color: am.color ?? colorFor(am.code),
           daily_goal: am.daily_goal ?? 15,
-          onboarding_completed: false,
+          // Don't clobber an AM who's already finished onboarding.
+          ...(result.preservedOnboarding ? { onboarding_completed: true } : { onboarding_completed: false }),
         },
         { onConflict: "am_code" },
       )
@@ -279,11 +292,13 @@ async function main() {
         am_code: am.code,
         pc_id: pc.id,
         am_id: amRow.id,
-        onboarding_completed: false,
+        onboarding_completed: result.preservedOnboarding ? true : false,
       },
     });
 
-    console.log("  ", am.code, full_name, am.team_label ? `(${am.team_label})` : "");
+    console.log("  ", am.code, full_name,
+      am.team_label ? `(${am.team_label})` : "",
+      result.preservedOnboarding ? "· onboarding kept" : "");
   }
 
   console.log("");

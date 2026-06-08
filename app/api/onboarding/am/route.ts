@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient, createSupabaseAdminClient } from "@/lib/supabase/server";
+import { passwordFromPin } from "@/lib/pin";
 
 /**
  * AM onboarding completion.
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
   if (amErr) return NextResponse.json({ error: amErr.message }, { status: 500 });
 
   const { error: pwErr } = await admin.auth.admin.updateUserById(user.id, {
-    password: new_pin,
+    password: passwordFromPin(new_pin),
     app_metadata: { ...user.app_metadata, onboarding_completed: true },
   });
   if (pwErr) return NextResponse.json({ error: pwErr.message }, { status: 500 });

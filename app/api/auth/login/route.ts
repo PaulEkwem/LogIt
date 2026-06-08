@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { passwordFromPin } from "@/lib/pin";
 
 const SYNTH_DOMAIN = "logit.invalid";
 
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.signInWithPassword({
     email: `${code}@${SYNTH_DOMAIN}`,
-    password: pin,
+    password: passwordFromPin(pin),
   });
 
   if (error) {

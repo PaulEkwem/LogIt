@@ -21,6 +21,7 @@ export function HomeScreen({
   yesterday,
   divisionId,
   amId,
+  retentionStatus,
 }: {
   amName: string;
   goal: number;
@@ -28,6 +29,7 @@ export function HomeScreen({
   yesterday: DailyReport | null;
   divisionId: string;
   amId: string;
+  retentionStatus: { filled_by_name: string; submitted_at: string; retention_m: number } | null;
 }) {
   void amName; void amId; void goal;
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -37,6 +39,10 @@ export function HomeScreen({
 
   const acquisitionSummary = submitted && today
     ? `${today.total_opened} opened · ${new Date(today.submitted_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+    : undefined;
+
+  const retentionSummary = retentionStatus
+    ? `${retentionStatus.filled_by_name} · ${new Date(retentionStatus.submitted_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
     : undefined;
 
   return (
@@ -148,6 +154,8 @@ export function HomeScreen({
         onClose={() => setSheetOpen(false)}
         acquisitionStatus={submitted ? "logged" : "pending"}
         acquisitionSummary={acquisitionSummary}
+        retentionStatus={retentionStatus ? "logged" : "pending"}
+        retentionSummary={retentionSummary}
       />
     </>
   );

@@ -81,6 +81,19 @@ export type EventReport = {
   edited_at: string | null;
 };
 
+export type RetentionReport = {
+  id: string;
+  pc_id: string;
+  report_date: string;
+  pledges_naira_m: number;
+  inflow_naira_m: number;
+  outflow_naira_m: number;
+  retention_naira_m: number;
+  filled_by_am_id: string;
+  submitted_at: string;
+  edited_at: string | null;
+};
+
 export const ACCOUNT_TYPES = [
   { key: "sm", code: "SM", label: "SME",      desc: "Business account" },
   { key: "t3", code: "T3", label: "Tier 3",   desc: "Full KYC current" },

@@ -1,0 +1,382 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { X, ArrowRight, Check, Banknote, TrendingUp, TrendingDown, ShieldCheck } from "lucide-react";
+
+type Existing = {
+  pledges_naira_m: number;
+  inflow_naira_m: number;
+  outflow_naira_m: number;
+  retention_naira_m: number;
+  filled_by_name: string;
+  filled_by_initials: string;
+  filled_by_color: string;
+  submitted_at: string;
+} | null;
+
+type StepKey = "pledges" | "inflow" | "outflow" | "retention";
+
+const STEPS: { key: StepKey; label: string; question: string; icon: React.ReactNode; accent: string }[] = [
+  { key: "pledges",   label: "Pledges",   question: "Total pledges secured today?",   icon: <Banknote className="w-5 h-5" />,     accent: "var(--color-brand-red)" },
+  { key: "inflow",    label: "Inflow",    question: "Total inflow today?",            icon: <TrendingUp className="w-5 h-5" />,   accent: "#16A34A" },
+  { key: "outflow",   label: "Outflow",   question: "Total outflow today?",           icon: <TrendingDown className="w-5 h-5" />, accent: "#DC2626" },
+  { key: "retention", label: "Retention", question: "Net retention figure today?",    icon: <ShieldCheck className="w-5 h-5" />,  accent: "var(--color-ink)" },
+];
+
+export function RetentionTallyFlow({
+  pcName, pcCode, amName, existing,
+}: {
+  pcName: string;
+  pcCode: string;
+  amName: string;
+  existing: Existing;
+}) {
+  const router = useRouter();
+  const [step, setStep] = useState(0);
+  const [pledges, setPledges]     = useState<string>(existing ? String(existing.pledges_naira_m) : "");
+  const [inflow, setInflow]       = useState<string>(existing ? String(existing.inflow_naira_m) : "");
+  const [outflow, setOutflow]     = useState<string>(existing ? String(existing.outflow_naira_m) : "");
+  const [retention, setRetention] = useState<string>(existing ? String(existing.retention_naira_m) : "");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  const values: Record<StepKey, [string, (v: string) => void]> = {
+    pledges:   [pledges,   setPledges],
+    inflow:    [inflow,    setInflow],
+    outflow:   [outflow,   setOutflow],
+    retention: [retention, setRetention],
+  };
+
+  function close() {
+    router.push("/home");
+  }
+
+  function parseNum(s: string): number {
+    const n = parseFloat(s.replace(/[^\d.]/g, ""));
+    return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : 0;
+  }
+
+  async function submit() {
+    setError(null);
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/retention/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pledges_naira_m:   parseNum(pledges),
+          inflow_naira_m:    parseNum(inflow),
+          outflow_naira_m:   parseNum(outflow),
+          retention_naira_m: parseNum(retention),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Submission failed.");
+        return;
+      }
+      setDone(true);
+    } catch {
+      setError("Couldn't reach the server.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <Celebration
+        pcName={pcName}
+        pledges={parseNum(pledges)}
+        inflow={parseNum(inflow)}
+        outflow={parseNum(outflow)}
+        retention={parseNum(retention)}
+        onContinue={() => { router.push("/home"); router.refresh(); }}
+      />
+    );
+  }
+
+  const current = STEPS[step];
+  const isLast = step === STEPS.length - 1;
+  const [val, setVal] = values[current.key];
+
+  return (
+    <section
+      className="fixed inset-0 z-[200] mx-auto max-w-[430px] flex flex-col"
+      style={{ background: "var(--color-bg)", left: 0, right: 0 }}
+    >
+      <div className="px-5 py-4 flex items-center justify-between">
+        <button
+          onClick={close}
+          aria-label="Close"
+          className="w-9 h-9 rounded-full flex items-center justify-center"
+          style={{ background: "rgba(15,23,42,0.06)", color: "var(--color-ink)" }}
+        >
+          <X className="w-[18px] h-[18px]" />
+        </button>
+        <div className="flex gap-1.5">
+          {STEPS.map((_, n) => (
+            <span
+              key={n}
+              className="w-5 h-1 rounded-full transition-colors"
+              style={{ background: n <= step ? "var(--color-brand-red)" : "var(--color-line)" }}
+            />
+          ))}
+        </div>
+        <div className="w-9" />
+      </div>
+
+      <div className="flex-1 min-h-0 px-6 pb-8 flex flex-col animate-[fadeIn_0.22s_ease-out] overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch" }}>
+        <div className="font-extrabold text-[10px] uppercase mb-2" style={{ color: "var(--color-muted)", letterSpacing: "0.14em" }}>
+          Step {step + 1} of {STEPS.length} · {pcName} ({pcCode}) · {current.label}
+        </div>
+
+        {existing && step === 0 && (
+          <div
+            className="mb-5 rounded-2xl px-4 py-3 flex items-center gap-3"
+            style={{ background: "#FFFBEB", border: "1.5px solid var(--color-pending)" }}
+          >
+            <div
+              className="w-9 h-9 rounded-full flex items-center justify-center text-white font-extrabold flex-shrink-0"
+              style={{ background: existing.filled_by_color, fontSize: 11 }}
+            >
+              {existing.filled_by_initials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-black text-[13px]" style={{ color: "var(--color-pending)", letterSpacing: "-0.01em" }}>
+                Already filled today by {existing.filled_by_name}
+              </div>
+              <div className="font-bold text-[11px] mt-0.5" style={{ color: "var(--color-body)" }}>
+                Your submission will overwrite theirs.
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="font-black text-[24px] mb-2" style={{ color: "var(--color-ink)", letterSpacing: "-0.025em", lineHeight: 1.25 }}>
+          {current.question}
+        </div>
+        <div className="text-[13px] font-bold mb-7" style={{ color: "var(--color-body)" }}>
+          For team <b style={{ color: "var(--color-ink)" }}>{pcName}</b> · enter amount in <b style={{ color: "var(--color-ink)" }}>₦ millions</b>.
+        </div>
+
+        <BigMoneyInput value={val} onChange={setVal} accent={current.accent} icon={current.icon} />
+
+        <Encouragement>
+          {!val && "Type the figure in millions. e.g. 12.5 means ₦12.5M."}
+          {val && parseNum(val) > 0 && (
+            <>
+              {current.label}: <b className="num">₦{fmtMoney(parseNum(val))}M</b> for {pcName} today.
+            </>
+          )}
+        </Encouragement>
+
+        {error && (
+          <div className="text-center mt-3 text-[13px] font-bold" style={{ color: "#DC2626" }}>
+            {error}
+          </div>
+        )}
+
+        <div className="mt-auto pt-6 flex flex-col gap-2">
+          <button
+            onClick={() => {
+              if (!isLast) {
+                setStep((s) => Math.min(STEPS.length - 1, s + 1));
+              } else {
+                submit();
+              }
+            }}
+            disabled={submitting}
+            className="w-full rounded-2xl py-4 text-[16px] font-black flex items-center justify-center gap-2 text-white disabled:opacity-40"
+            style={{ background: "var(--color-brand-red)", padding: "18px", letterSpacing: "-0.01em" }}
+          >
+            {isLast
+              ? (submitting ? "Submitting…" : <><Check className="w-[18px] h-[18px]" /> Submit retention</>)
+              : <>Next <ArrowRight className="w-[18px] h-[18px]" /></>
+            }
+          </button>
+          {step > 0 && (
+            <button
+              onClick={() => setStep((s) => Math.max(0, s - 1))}
+              className="w-full text-[13px] font-extrabold py-2"
+              style={{ color: "var(--color-muted)" }}
+            >
+              Back
+            </button>
+          )}
+          <div className="text-center text-[11px] font-bold mt-1" style={{ color: "var(--color-muted)" }}>
+            Filed by you ({amName}) on behalf of {pcName}.
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function BigMoneyInput({
+  value, onChange, accent, icon,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  accent: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-center my-2 mb-3">
+      <div
+        className="w-12 h-12 rounded-2xl flex items-center justify-center mb-3"
+        style={{ background: "white", border: "1.5px solid var(--color-line)", color: accent }}
+      >
+        {icon}
+      </div>
+      <div
+        className="rounded-[20px] flex items-center justify-center w-full max-w-[300px]"
+        style={{
+          background: "white",
+          border: "2px solid var(--color-line)",
+          padding: "14px 18px",
+        }}
+      >
+        <span className="font-black num mr-2" style={{ fontSize: 36, color: "var(--color-muted)", letterSpacing: "-0.03em" }}>
+          ₦
+        </span>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={value}
+          onChange={(e) => {
+            const cleaned = e.target.value.replace(/[^\d.]/g, "");
+            // allow only one decimal point
+            const parts = cleaned.split(".");
+            const next = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join("").slice(0, 2)}` : cleaned;
+            onChange(next);
+          }}
+          placeholder="0"
+          autoFocus
+          className="num font-black outline-none text-center min-w-0"
+          style={{
+            flex: 1,
+            background: "transparent",
+            color: "var(--color-ink)",
+            fontSize: 48,
+            letterSpacing: "-0.04em",
+            MozAppearance: "textfield",
+          }}
+        />
+        <span className="font-extrabold ml-2" style={{ fontSize: 16, color: "var(--color-muted)", letterSpacing: "0.04em" }}>
+          M
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function Encouragement({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="mt-1 rounded-2xl px-4 py-3.5 font-bold text-[14px] min-h-[60px] transition-colors"
+      style={{
+        background: "white",
+        border: "1.5px solid var(--color-line)",
+        color: "var(--color-body)",
+        lineHeight: 1.5,
+        letterSpacing: "-0.005em",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function fmtMoney(n: number): string {
+  if (n === 0) return "0";
+  if (n < 1) return n.toFixed(2);
+  if (n < 10) return n.toFixed(1);
+  return n.toLocaleString(undefined, { maximumFractionDigits: 1 });
+}
+
+function Celebration({
+  pcName, pledges, inflow, outflow, retention, onContinue,
+}: {
+  pcName: string;
+  pledges: number;
+  inflow: number;
+  outflow: number;
+  retention: number;
+  onContinue: () => void;
+}) {
+  const net = inflow - outflow;
+  return (
+    <section
+      className="fixed z-[300] flex flex-col"
+      style={{
+        inset: 0,
+        marginInline: "auto",
+        maxWidth: 430,
+        background: "linear-gradient(165deg, #0F172A 0%, #1F2937 100%)",
+        paddingTop: 60,
+        paddingBottom: 32,
+        paddingLeft: 28,
+        paddingRight: 28,
+      }}
+    >
+      <div
+        className="w-[72px] h-[72px] rounded-full flex items-center justify-center mb-4"
+        style={{ background: "rgba(255,200,0,0.18)", color: "var(--color-brand-gold)" }}
+      >
+        <ShieldCheck className="w-10 h-10" strokeWidth={2.5} />
+      </div>
+      <div className="text-white font-black text-[30px]" style={{ letterSpacing: "-0.03em", lineHeight: 1.1 }}>
+        Retention filed
+      </div>
+      <div className="text-white/70 font-bold text-[13px] mt-1.5">
+        {pcName} · {new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}
+      </div>
+
+      <div
+        className="rounded-2xl mt-7 p-5"
+        style={{
+          background: "rgba(255,255,255,0.08)",
+          border: "1px solid rgba(255,255,255,0.14)",
+        }}
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <Stat label="Pledges"   value={pledges} />
+          <Stat label="Retention" value={retention} primary />
+          <Stat label="Inflow"    value={inflow}  positive />
+          <Stat label="Outflow"   value={outflow} negative />
+        </div>
+        <div className="mt-3 pt-3 flex justify-between font-bold text-[13px]" style={{ borderTop: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.85)" }}>
+          <span>Net flow today</span>
+          <span className="num font-black" style={{ color: net >= 0 ? "#34D399" : "#FCA5A5" }}>
+            {net >= 0 ? "+" : "−"}₦{fmtMoney(Math.abs(net))}M
+          </span>
+        </div>
+      </div>
+
+      <button
+        onClick={onContinue}
+        className="mt-auto w-full rounded-2xl py-4.5 text-[16px] font-black flex items-center justify-center gap-2"
+        style={{ background: "var(--color-brand-gold)", color: "var(--color-ink)", padding: 18 }}
+      >
+        Back to home <ArrowRight className="w-[18px] h-[18px]" />
+      </button>
+    </section>
+  );
+}
+
+function Stat({ label, value, primary = false, positive = false, negative = false }: { label: string; value: number; primary?: boolean; positive?: boolean; negative?: boolean }) {
+  const color = primary ? "var(--color-brand-gold)" : positive ? "#34D399" : negative ? "#FCA5A5" : "white";
+  return (
+    <div className="rounded-xl px-3 py-2.5" style={{ background: primary ? "rgba(255,200,0,0.12)" : "rgba(255,255,255,0.06)" }}>
+      <div className="num" style={{ fontSize: 26, lineHeight: 1, letterSpacing: "-0.04em", color }}>
+        ₦{fmtMoney(value)}<span style={{ fontSize: 14, marginLeft: 2 }}>M</span>
+      </div>
+      <div className="font-extrabold text-[10px] uppercase mt-1" style={{ color: "rgba(255,255,255,0.7)", letterSpacing: "0.1em" }}>
+        {label}
+      </div>
+    </div>
+  );
+}

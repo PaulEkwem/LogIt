@@ -2,18 +2,21 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { X, Banknote, Users, Target, Check, ArrowRight, Sparkles } from "lucide-react";
+import { X, Banknote, ShieldCheck, Target, Check, ArrowRight, Sparkles } from "lucide-react";
 
 type ActiveStatus = "pending" | "logged";
 
 export function ReportTypeSheet({
   open, onClose,
   acquisitionStatus, acquisitionSummary,
+  retentionStatus, retentionSummary,
 }: {
   open: boolean;
   onClose: () => void;
   acquisitionStatus: ActiveStatus;
-  acquisitionSummary?: string;       // e.g. "12 opened · logged 14:22"
+  acquisitionSummary?: string;       // e.g. "12 opened · 14:22"
+  retentionStatus: ActiveStatus;
+  retentionSummary?: string;         // e.g. "Janet · 14:23"
 }) {
   const router = useRouter();
 
@@ -31,6 +34,11 @@ export function ReportTypeSheet({
   function pickAcquisition() {
     onClose();
     router.push("/log");
+  }
+
+  function pickRetention() {
+    onClose();
+    router.push("/retention");
   }
 
   return (
@@ -90,10 +98,10 @@ export function ReportTypeSheet({
             Choose a report type
           </div>
 
-          {/* Active types */}
+          {/* Acquisition */}
           <button
             onClick={pickAcquisition}
-            className="w-full text-left rounded-2xl p-3.5 flex items-center gap-3 transition-colors active:scale-[0.99]"
+            className="w-full text-left rounded-2xl p-3.5 flex items-center gap-3 mb-2 transition-colors active:scale-[0.99]"
             style={{ background: "white", border: "1.5px solid var(--color-line)" }}
           >
             <div
@@ -119,6 +127,35 @@ export function ReportTypeSheet({
             <ArrowRight className="w-4 h-4 flex-shrink-0" style={{ color: "var(--color-muted)" }} />
           </button>
 
+          {/* Retention */}
+          <button
+            onClick={pickRetention}
+            className="w-full text-left rounded-2xl p-3.5 flex items-center gap-3 transition-colors active:scale-[0.99]"
+            style={{ background: "white", border: "1.5px solid var(--color-line)" }}
+          >
+            <div
+              className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: "rgba(15,23,42,0.08)", color: "var(--color-ink)" }}
+            >
+              <ShieldCheck className="w-5 h-5" strokeWidth={2.25} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-black text-[15px]" style={{ color: "var(--color-ink)", letterSpacing: "-0.015em" }}>
+                Retention (team)
+              </div>
+              {retentionStatus === "logged" && retentionSummary ? (
+                <div className="inline-flex items-center gap-1 font-bold text-[12px] mt-0.5" style={{ color: "var(--color-funded)" }}>
+                  <Check className="w-3 h-3" strokeWidth={3} /> Filled by {retentionSummary} · tap to overwrite
+                </div>
+              ) : (
+                <div className="font-bold text-[12px] mt-0.5" style={{ color: "var(--color-body)" }}>
+                  Pledges, inflow, outflow, retention — one per team per day
+                </div>
+              )}
+            </div>
+            <ArrowRight className="w-4 h-4 flex-shrink-0" style={{ color: "var(--color-muted)" }} />
+          </button>
+
           {/* Coming soon */}
           <div
             className="font-extrabold text-[10px] uppercase mt-5 mb-2 px-1"
@@ -127,7 +164,6 @@ export function ReportTypeSheet({
             Coming soon
           </div>
           <div className="flex flex-col gap-2">
-            <PlaceholderRow icon={<Users className="w-5 h-5" />} title="Customer Retention" tagline="Track follow-ups and at-risk accounts" />
             <PlaceholderRow icon={<Target className="w-5 h-5" />} title="Cross-selling" tagline="Log products offered and taken" />
           </div>
 

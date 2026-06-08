@@ -11,7 +11,7 @@ export default async function HomePage() {
 
   const today = new Date().toISOString().slice(0, 10);
 
-  const [{ data: amRow }, { data: reports }, { data: pcRow }] = await Promise.all([
+  const [{ data: amRow }, { data: reports }, { data: pcRow }, { data: retentionRow }] = await Promise.all([
     supabase
       .from("account_managers")
       .select("id, full_name, am_code, daily_goal")
@@ -24,10 +24,30 @@ export default async function HomePage() {
       .order("report_date", { ascending: false })
       .limit(2),
     supabase.from("pcs").select("division_id").eq("id", meta.pc_id).single(),
+    supabase
+      .from("retention_reports")
+      .select("retention_naira_m, filled_by_am_id, submitted_at")
+      .eq("pc_id", meta.pc_id)
+      .eq("report_date", today)
+      .maybeSingle(),
   ]);
 
   const todayReport = reports?.find((r) => r.report_date === today) ?? null;
   const yesterdayReport = reports?.find((r) => r.report_date !== today) ?? null;
+
+  let retentionStatus: { filled_by_name: string; submitted_at: string; retention_m: number } | null = null;
+  if (retentionRow) {
+    const { data: filler } = await supabase
+      .from("account_managers")
+      .select("full_name")
+      .eq("id", retentionRow.filled_by_am_id)
+      .maybeSingle();
+    retentionStatus = {
+      filled_by_name: filler?.full_name ?? "a teammate",
+      submitted_at: retentionRow.submitted_at,
+      retention_m: Number(retentionRow.retention_naira_m),
+    };
+  }
 
   return (
     <HomeScreen
@@ -37,6 +57,7 @@ export default async function HomePage() {
       yesterday={yesterdayReport as DailyReport | null}
       divisionId={pcRow?.division_id ?? ""}
       amId={meta.am_id}
+      retentionStatus={retentionStatus}
     />
   );
 }

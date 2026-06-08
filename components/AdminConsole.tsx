@@ -12,8 +12,16 @@ type AdminRow = {
   initials: string;
   color: string;
   daily_goal: number;
+  team_label: string | null;
   submitted: boolean;
   opened: number | null;
+};
+
+export type PcGroup = {
+  pc_id: string;
+  pc_name: string;
+  pc_code: string;
+  rows: AdminRow[];
 };
 
 type EventRow = {
@@ -34,18 +42,16 @@ function fmtToday() {
 }
 
 export function AdminConsole({
-  divisionName, pcName, pcCode, rows, submittedCount, totalAcquired, totalOpened, events,
+  divisionName, pcGroups, submittedCount, totalCount, totalAcquired, totalOpened, events,
 }: {
   divisionName: string;
-  pcName: string;
-  pcCode: string;
-  rows: AdminRow[];
+  pcGroups: PcGroup[];
   submittedCount: number;
+  totalCount: number;
   totalAcquired: number;
   totalOpened: number;
   events: EventRow[];
 }) {
-  void divisionName;
   const router = useRouter();
   const [sent, setSent] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -55,6 +61,7 @@ export function AdminConsole({
   const [evEnd, setEvEnd] = useState(new Date().toISOString().slice(0, 10));
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [openPcs, setOpenPcs] = useState<Record<string, boolean>>({});
 
   async function createCampaign() {
     if (!evName.trim() || !evLocation.trim()) {
@@ -89,10 +96,8 @@ export function AdminConsole({
     }
   }
 
-  // closeEvent moved to /admin/events/[id] recap page.
-
-  const fillPct = rows.length > 0 ? Math.min(100, Math.round((submittedCount / rows.length) * 100)) : 0;
-  const pendingCount = rows.length - submittedCount;
+  const fillPct = totalCount > 0 ? Math.min(100, Math.round((submittedCount / totalCount) * 100)) : 0;
+  const pendingCount = totalCount - submittedCount;
 
   async function signOut() {
     await fetch("/api/auth/signout", { method: "POST" });
@@ -101,7 +106,6 @@ export function AdminConsole({
   }
 
   async function sendReport() {
-    // TODO: server action to generate PDF + open email composer (mailto fallback)
     setSent(true);
   }
 
@@ -151,14 +155,14 @@ export function AdminConsole({
             className="text-center font-extrabold text-[11px] uppercase"
             style={{ color: "var(--color-muted)", letterSpacing: "0.2em" }}
           >
-            Admin · {pcName} · {fmtToday()}
+            {divisionName} · {fmtToday()}
           </div>
           <div className="flex items-baseline justify-center gap-1.5 mt-7">
             <span className="num" style={{ fontSize: 108, lineHeight: 0.9, letterSpacing: "-0.07em", color: "var(--color-ink)" }}>
               {submittedCount}
             </span>
             <span className="font-extrabold" style={{ fontSize: 38, color: "var(--color-muted)", letterSpacing: "-0.04em" }}>/</span>
-            <span className="num" style={{ fontSize: 38, color: "var(--color-muted)", fontWeight: 800 }}>{rows.length}</span>
+            <span className="num" style={{ fontSize: 38, color: "var(--color-muted)", fontWeight: 800 }}>{totalCount}</span>
           </div>
           <div className="mt-7 w-full h-1.5 rounded-full overflow-hidden" style={{ background: "#EEF2F7" }}>
             <div
@@ -167,7 +171,7 @@ export function AdminConsole({
             />
           </div>
           <div className="text-center mt-4 text-[15px] font-bold" style={{ color: "var(--color-body)" }}>
-            Reports submitted today.
+            Reports submitted across {pcGroups.length} {pcGroups.length === 1 ? "team" : "teams"}.
           </div>
         </div>
 
@@ -175,16 +179,47 @@ export function AdminConsole({
           className="text-center font-bold text-[13px] mt-6 px-4 leading-snug"
           style={{ color: "var(--color-body)", letterSpacing: "-0.005em" }}
         >
-          Team has acquired <b className="num text-(--color-ink) font-black">{totalAcquired} prospects</b> and opened{" "}
-          <b className="num text-(--color-ink) font-black">{totalOpened} accounts</b> so far.
+          Division has acquired <b className="num text-(--color-ink) font-black">{totalAcquired} prospects</b> and opened{" "}
+          <b className="num text-(--color-ink) font-black">{totalOpened} accounts</b> today.
           {pendingCount > 0 && <> <b className="num text-(--color-ink) font-black">{pendingCount}</b> AM{pendingCount === 1 ? "" : "s"} still need to log.</>}
         </div>
 
-        {/* AM list */}
-        <Section label="Account Managers">
-          {rows.map((row, i) => (
-            <AmRow key={row.id} row={row} first={i === 0} />
-          ))}
+        {/* AMs by PC */}
+        <Section label={`Account Managers · ${totalCount}`}>
+          {pcGroups.map((g) => {
+            const open = openPcs[g.pc_id] !== false; // default open
+            const subInPc = g.rows.filter((r) => r.submitted).length;
+            return (
+              <div key={g.pc_id} className="mt-3.5 first:mt-1">
+                <button
+                  onClick={() => setOpenPcs((s) => ({ ...s, [g.pc_id]: !open }))}
+                  className="w-full flex items-center justify-between py-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-[13px]" style={{ color: "var(--color-ink)", letterSpacing: "-0.01em" }}>
+                      {g.pc_name}
+                    </span>
+                    <span
+                      className="font-extrabold text-[10px] rounded-md px-1.5 py-0.5"
+                      style={{ background: "#F1F5F9", color: "var(--color-muted)", letterSpacing: "0.06em" }}
+                    >
+                      PC {g.pc_code}
+                    </span>
+                  </div>
+                  <span className="font-extrabold text-[12px]" style={{ color: "var(--color-muted)" }}>
+                    {subInPc}/{g.rows.length}
+                  </span>
+                </button>
+                {open && (
+                  <div className="rounded-2xl px-3" style={{ background: "white", border: "1.5px solid var(--color-line)" }}>
+                    {g.rows.map((row, i) => (
+                      <AmRow key={row.id} row={row} first={i === 0} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </Section>
 
         {/* Cluster campaigns */}
@@ -418,7 +453,7 @@ function EventCard({ event }: { event: EventRow }) {
 function AmRow({ row, first }: { row: AdminRow; first: boolean }) {
   return (
     <div
-      className="grid items-center gap-3 py-3.5"
+      className="grid items-center gap-3 py-3"
       style={{
         gridTemplateColumns: "8px 30px 1fr auto auto",
         borderTop: first ? "none" : "1px solid #F1F5F9",
@@ -443,6 +478,7 @@ function AmRow({ row, first }: { row: AdminRow; first: boolean }) {
         </div>
         <div className="font-bold text-[11px] mt-0.5" style={{ color: "var(--color-muted)" }}>
           Code {row.am_code} · Goal {row.daily_goal}
+          {row.team_label ? <> · <span style={{ color: "var(--color-brand-red)" }}>{row.team_label}</span></> : null}
         </div>
       </div>
       <div

@@ -15,14 +15,16 @@ type Existing = {
   submitted_at: string;
 } | null;
 
-type StepKey = "pledges" | "inflow" | "outflow" | "retention";
+type StepKey = "pledges" | "inflow" | "outflow" | "review";
 
-const STEPS: { key: StepKey; label: string; question: string; icon: React.ReactNode; accent: string }[] = [
-  { key: "pledges",   label: "Pledges",   question: "Total pledges secured today?",   icon: <Banknote className="w-5 h-5" />,     accent: "var(--color-brand-red)" },
-  { key: "inflow",    label: "Inflow",    question: "Total inflow today?",            icon: <TrendingUp className="w-5 h-5" />,   accent: "#16A34A" },
-  { key: "outflow",   label: "Outflow",   question: "Total outflow today?",           icon: <TrendingDown className="w-5 h-5" />, accent: "#DC2626" },
-  { key: "retention", label: "Retention", question: "Net retention figure today?",    icon: <ShieldCheck className="w-5 h-5" />,  accent: "var(--color-ink)" },
+const STEPS: { key: StepKey; label: string }[] = [
+  { key: "pledges",  label: "Pledges" },
+  { key: "inflow",   label: "Inflow"  },
+  { key: "outflow",  label: "Outflow" },
+  { key: "review",   label: "Net retention" },
 ];
+
+const FLAT_THRESHOLD_M = 100; // below ₦100M (positive) = flat day
 
 export function RetentionTallyFlow({
   pcName, pcCode, amName, existing,
@@ -37,26 +39,20 @@ export function RetentionTallyFlow({
   const [pledges, setPledges]     = useState<string>(existing ? String(existing.pledges_naira_m) : "");
   const [inflow, setInflow]       = useState<string>(existing ? String(existing.inflow_naira_m) : "");
   const [outflow, setOutflow]     = useState<string>(existing ? String(existing.outflow_naira_m) : "");
-  const [retention, setRetention] = useState<string>(existing ? String(existing.retention_naira_m) : "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
-  const values: Record<StepKey, [string, (v: string) => void]> = {
-    pledges:   [pledges,   setPledges],
-    inflow:    [inflow,    setInflow],
-    outflow:   [outflow,   setOutflow],
-    retention: [retention, setRetention],
-  };
-
-  function close() {
-    router.push("/home");
-  }
-
-  function parseNum(s: string): number {
+  const parseNum = (s: string): number => {
     const n = parseFloat(s.replace(/[^\d.]/g, ""));
     return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : 0;
-  }
+  };
+  const pledgesN = parseNum(pledges);
+  const inflowN  = parseNum(inflow);
+  const outflowN = parseNum(outflow);
+  const netRetention = Math.round((inflowN - outflowN) * 100) / 100;
+
+  function close() { router.push("/home"); }
 
   async function submit() {
     setError(null);
@@ -66,10 +62,9 @@ export function RetentionTallyFlow({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          pledges_naira_m:   parseNum(pledges),
-          inflow_naira_m:    parseNum(inflow),
-          outflow_naira_m:   parseNum(outflow),
-          retention_naira_m: parseNum(retention),
+          pledges_naira_m: pledgesN,
+          inflow_naira_m:  inflowN,
+          outflow_naira_m: outflowN,
         }),
       });
       const data = await res.json();
@@ -89,18 +84,17 @@ export function RetentionTallyFlow({
     return (
       <Celebration
         pcName={pcName}
-        pledges={parseNum(pledges)}
-        inflow={parseNum(inflow)}
-        outflow={parseNum(outflow)}
-        retention={parseNum(retention)}
+        pledges={pledgesN}
+        inflow={inflowN}
+        outflow={outflowN}
+        net={netRetention}
         onContinue={() => { router.push("/home"); router.refresh(); }}
       />
     );
   }
 
   const current = STEPS[step];
-  const isLast = step === STEPS.length - 1;
-  const [val, setVal] = values[current.key];
+  const isReview = current.key === "review";
 
   return (
     <section
@@ -155,23 +149,51 @@ export function RetentionTallyFlow({
           </div>
         )}
 
-        <div className="font-black text-[24px] mb-2" style={{ color: "var(--color-ink)", letterSpacing: "-0.025em", lineHeight: 1.25 }}>
-          {current.question}
-        </div>
-        <div className="text-[13px] font-bold mb-7" style={{ color: "var(--color-body)" }}>
-          For team <b style={{ color: "var(--color-ink)" }}>{pcName}</b> · enter amount in <b style={{ color: "var(--color-ink)" }}>₦ millions</b>.
-        </div>
+        {current.key === "pledges" && (
+          <InputStep
+            question="Total pledges secured today?"
+            sub={<>For team <b style={{ color: "var(--color-ink)" }}>{pcName}</b> · enter amount in <b style={{ color: "var(--color-ink)" }}>₦ millions</b>.</>}
+            icon={<Banknote className="w-5 h-5" />}
+            accent="var(--color-brand-red)"
+            value={pledges}
+            onChange={setPledges}
+            encouragement={<PledgesEncouragement n={pledgesN} />}
+          />
+        )}
 
-        <BigMoneyInput value={val} onChange={setVal} accent={current.accent} icon={current.icon} />
+        {current.key === "inflow" && (
+          <InputStep
+            question="Total inflow today?"
+            sub={<>Funds that came IN to {pcName} accounts today, in <b style={{ color: "var(--color-ink)" }}>₦ millions</b>.</>}
+            icon={<TrendingUp className="w-5 h-5" />}
+            accent="#16A34A"
+            value={inflow}
+            onChange={setInflow}
+            encouragement={<InflowEncouragement n={inflowN} />}
+          />
+        )}
 
-        <Encouragement>
-          {!val && "Type the figure in millions. e.g. 12.5 means ₦12.5M."}
-          {val && parseNum(val) > 0 && (
-            <>
-              {current.label}: <b className="num">₦{fmtMoney(parseNum(val))}M</b> for {pcName} today.
-            </>
-          )}
-        </Encouragement>
+        {current.key === "outflow" && (
+          <InputStep
+            question="Total outflow today?"
+            sub={<>Funds that LEFT {pcName} accounts today, in <b style={{ color: "var(--color-ink)" }}>₦ millions</b>.</>}
+            icon={<TrendingDown className="w-5 h-5" />}
+            accent="#DC2626"
+            value={outflow}
+            onChange={setOutflow}
+            encouragement={<OutflowEncouragement n={outflowN} />}
+          />
+        )}
+
+        {isReview && (
+          <ReviewStep
+            pcName={pcName}
+            pledges={pledgesN}
+            inflow={inflowN}
+            outflow={outflowN}
+            net={netRetention}
+          />
+        )}
 
         {error && (
           <div className="text-center mt-3 text-[13px] font-bold" style={{ color: "#DC2626" }}>
@@ -182,7 +204,7 @@ export function RetentionTallyFlow({
         <div className="mt-auto pt-6 flex flex-col gap-2">
           <button
             onClick={() => {
-              if (!isLast) {
+              if (!isReview) {
                 setStep((s) => Math.min(STEPS.length - 1, s + 1));
               } else {
                 submit();
@@ -192,7 +214,7 @@ export function RetentionTallyFlow({
             className="w-full rounded-2xl py-4 text-[16px] font-black flex items-center justify-center gap-2 text-white disabled:opacity-40"
             style={{ background: "var(--color-brand-red)", padding: "18px", letterSpacing: "-0.01em" }}
           >
-            {isLast
+            {isReview
               ? (submitting ? "Submitting…" : <><Check className="w-[18px] h-[18px]" /> Submit retention</>)
               : <>Next <ArrowRight className="w-[18px] h-[18px]" /></>
             }
@@ -212,6 +234,183 @@ export function RetentionTallyFlow({
         </div>
       </div>
     </section>
+  );
+}
+
+// ============================================================================
+// Status interpretation for net retention
+// ============================================================================
+
+type RetentionStatus = "negative" | "flat" | "positive";
+
+function statusOf(net: number): RetentionStatus {
+  if (net < 0) return "negative";
+  if (net < FLAT_THRESHOLD_M) return "flat";
+  return "positive";
+}
+
+function statusLabel(s: RetentionStatus): string {
+  switch (s) {
+    case "negative": return "Negative retention";
+    case "flat":     return "Flat day";
+    case "positive": return "Positive retention";
+  }
+}
+
+function statusColor(s: RetentionStatus): string {
+  switch (s) {
+    case "negative": return "#DC2626";
+    case "flat":     return "var(--color-pending)";
+    case "positive": return "#16A34A";
+  }
+}
+
+function statusEmoji(s: RetentionStatus): string {
+  switch (s) {
+    case "negative": return "📉";
+    case "flat":     return "😐";
+    case "positive": return "🚀";
+  }
+}
+
+function statusCopy(s: RetentionStatus, net: number): string {
+  switch (s) {
+    case "negative":
+      return `Net outflow of ₦${fmtMoney(Math.abs(net))}M today. Time to call the major outflowers and bring them back.`;
+    case "flat":
+      return `Funds held steady — under ₦${FLAT_THRESHOLD_M}M net movement either way. Quiet day.`;
+    case "positive":
+      return `Strong retention. Customers brought in ₦${fmtMoney(net)}M more than they pulled out today.`;
+  }
+}
+
+// ============================================================================
+// Sub-components
+// ============================================================================
+
+function InputStep({
+  question, sub, icon, accent, value, onChange, encouragement,
+}: {
+  question: string;
+  sub: React.ReactNode;
+  icon: React.ReactNode;
+  accent: string;
+  value: string;
+  onChange: (v: string) => void;
+  encouragement: React.ReactNode;
+}) {
+  return (
+    <>
+      <div className="font-black text-[24px] mb-2" style={{ color: "var(--color-ink)", letterSpacing: "-0.025em", lineHeight: 1.25 }}>
+        {question}
+      </div>
+      <div className="text-[13px] font-bold mb-7" style={{ color: "var(--color-body)" }}>
+        {sub}
+      </div>
+      <BigMoneyInput value={value} onChange={onChange} accent={accent} icon={icon} />
+      {encouragement}
+    </>
+  );
+}
+
+function ReviewStep({
+  pcName, pledges, inflow, outflow, net,
+}: {
+  pcName: string;
+  pledges: number;
+  inflow: number;
+  outflow: number;
+  net: number;
+}) {
+  const s = statusOf(net);
+  const color = statusColor(s);
+  const emoji = statusEmoji(s);
+  return (
+    <>
+      <div className="font-black text-[24px] mb-2" style={{ color: "var(--color-ink)", letterSpacing: "-0.025em", lineHeight: 1.25 }}>
+        Review &amp; submit
+      </div>
+      <div className="text-[13px] font-bold mb-5" style={{ color: "var(--color-body)" }}>
+        Net retention is inflow minus outflow. We calculate it for you.
+      </div>
+
+      <div className="rounded-2xl p-3 mb-4 grid grid-cols-3 gap-2" style={{ background: "white", border: "1.5px solid var(--color-line)" }}>
+        <MiniStat label="Pledges" value={pledges} />
+        <MiniStat label="Inflow"  value={inflow}  positive />
+        <MiniStat label="Outflow" value={outflow} negative />
+      </div>
+
+      <div
+        className="rounded-2xl p-5"
+        style={{ background: "white", border: `2px solid ${color}` }}
+      >
+        <div className="flex items-baseline justify-between mb-1">
+          <div className="font-extrabold text-[11px] uppercase" style={{ color: "var(--color-muted)", letterSpacing: "0.14em" }}>
+            Net retention · {pcName}
+          </div>
+          <div className="text-[28px]" aria-hidden>{emoji}</div>
+        </div>
+        <div className="num font-black" style={{ fontSize: 44, lineHeight: 1.05, letterSpacing: "-0.04em", color }}>
+          {net < 0 ? "−" : ""}₦{fmtMoney(Math.abs(net))}<span style={{ fontSize: 18, marginLeft: 2 }}>M</span>
+        </div>
+        <div className="mt-1 font-black text-[13px]" style={{ color }}>
+          {statusLabel(s)}
+        </div>
+        <div className="mt-3 font-bold text-[13px]" style={{ color: "var(--color-body)", lineHeight: 1.5 }}>
+          {statusCopy(s, net)}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function MiniStat({ label, value, positive = false, negative = false }: { label: string; value: number; positive?: boolean; negative?: boolean }) {
+  const color = positive ? "#16A34A" : negative ? "#DC2626" : "var(--color-ink)";
+  return (
+    <div>
+      <div className="font-extrabold text-[10px] uppercase mb-1" style={{ color: "var(--color-muted)", letterSpacing: "0.1em" }}>
+        {label}
+      </div>
+      <div className="num font-black" style={{ fontSize: 18, letterSpacing: "-0.03em", color }}>
+        ₦{fmtMoney(value)}<span style={{ fontSize: 11, marginLeft: 1 }}>M</span>
+      </div>
+    </div>
+  );
+}
+
+function PledgesEncouragement({ n }: { n: number }) {
+  if (n === 0)        return <Note>💬 Type the figure in millions. e.g. 12.5 means ₦12.5M.</Note>;
+  if (n < 5)          return <Note>📝 ₦{fmtMoney(n)}M in pledges — every promise counts.</Note>;
+  if (n < 50)         return <Note>👍 ₦{fmtMoney(n)}M pledged today.</Note>;
+  return <Note green>🔥 ₦{fmtMoney(n)}M in pledges — strong commitments coming in.</Note>;
+}
+
+function InflowEncouragement({ n }: { n: number }) {
+  if (n === 0)        return <Note>💬 Total amount that flowed IN to your team&apos;s accounts.</Note>;
+  if (n < 50)         return <Note>📥 ₦{fmtMoney(n)}M flowed in today.</Note>;
+  if (n < 200)        return <Note green>💪 ₦{fmtMoney(n)}M inflow — strong day for deposits.</Note>;
+  return <Note green>🚀 ₦{fmtMoney(n)}M inflow — exceptional.</Note>;
+}
+
+function OutflowEncouragement({ n }: { n: number }) {
+  if (n === 0)        return <Note>💬 Total amount that flowed OUT of your team&apos;s accounts.</Note>;
+  if (n < 50)         return <Note>📤 ₦{fmtMoney(n)}M went out today.</Note>;
+  return <Note>⚠️ ₦{fmtMoney(n)}M outflow — make sure the inflow keeps pace.</Note>;
+}
+
+function Note({ children, green = false }: { children: React.ReactNode; green?: boolean }) {
+  return (
+    <div
+      className="mt-1 rounded-2xl px-4 py-3.5 font-bold text-[14px] min-h-[60px] transition-colors"
+      style={{
+        background: green ? "#ECFDF5" : "white",
+        border: green ? "1.5px solid #BBF7D0" : "1.5px solid var(--color-line)",
+        color: green ? "var(--color-funded-d)" : "var(--color-body)",
+        lineHeight: 1.5,
+      }}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -248,7 +447,6 @@ function BigMoneyInput({
           value={value}
           onChange={(e) => {
             const cleaned = e.target.value.replace(/[^\d.]/g, "");
-            // allow only one decimal point
             const parts = cleaned.split(".");
             const next = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join("").slice(0, 2)}` : cleaned;
             onChange(next);
@@ -273,23 +471,6 @@ function BigMoneyInput({
   );
 }
 
-function Encouragement({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      className="mt-1 rounded-2xl px-4 py-3.5 font-bold text-[14px] min-h-[60px] transition-colors"
-      style={{
-        background: "white",
-        border: "1.5px solid var(--color-line)",
-        color: "var(--color-body)",
-        lineHeight: 1.5,
-        letterSpacing: "-0.005em",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
 function fmtMoney(n: number): string {
   if (n === 0) return "0";
   if (n < 1) return n.toFixed(2);
@@ -298,16 +479,19 @@ function fmtMoney(n: number): string {
 }
 
 function Celebration({
-  pcName, pledges, inflow, outflow, retention, onContinue,
+  pcName, pledges, inflow, outflow, net, onContinue,
 }: {
   pcName: string;
   pledges: number;
   inflow: number;
   outflow: number;
-  retention: number;
+  net: number;
   onContinue: () => void;
 }) {
-  const net = inflow - outflow;
+  const s = statusOf(net);
+  const color = statusColor(s);
+  const emoji = statusEmoji(s);
+
   return (
     <section
       className="fixed z-[300] flex flex-col"
@@ -339,21 +523,33 @@ function Celebration({
         className="rounded-2xl mt-7 p-5"
         style={{
           background: "rgba(255,255,255,0.08)",
-          border: "1px solid rgba(255,255,255,0.14)",
+          border: `1px solid ${color}55`,
         }}
       >
-        <div className="grid grid-cols-2 gap-3">
-          <Stat label="Pledges"   value={pledges} />
-          <Stat label="Retention" value={retention} primary />
-          <Stat label="Inflow"    value={inflow}  positive />
-          <Stat label="Outflow"   value={outflow} negative />
+        <div className="flex items-baseline justify-between mb-1">
+          <div className="font-extrabold text-[11px] uppercase" style={{ color: "rgba(255,255,255,0.7)", letterSpacing: "0.14em" }}>
+            Net retention today
+          </div>
+          <div className="text-[28px]" aria-hidden>{emoji}</div>
         </div>
-        <div className="mt-3 pt-3 flex justify-between font-bold text-[13px]" style={{ borderTop: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.85)" }}>
-          <span>Net flow today</span>
-          <span className="num font-black" style={{ color: net >= 0 ? "#34D399" : "#FCA5A5" }}>
-            {net >= 0 ? "+" : "−"}₦{fmtMoney(Math.abs(net))}M
-          </span>
+        <div className="num font-black" style={{ fontSize: 48, lineHeight: 1, letterSpacing: "-0.04em", color }}>
+          {net < 0 ? "−" : ""}₦{fmtMoney(Math.abs(net))}<span style={{ fontSize: 20, marginLeft: 2 }}>M</span>
         </div>
+        <div className="mt-1 font-black text-[14px]" style={{ color }}>
+          {statusLabel(s)}
+        </div>
+        <div className="mt-3 font-bold text-[13px]" style={{ color: "rgba(255,255,255,0.85)", lineHeight: 1.5 }}>
+          {statusCopy(s, net)}
+        </div>
+      </div>
+
+      <div
+        className="rounded-2xl mt-3 p-4 grid grid-cols-3 gap-2"
+        style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
+      >
+        <DarkMiniStat label="Pledges" value={pledges} />
+        <DarkMiniStat label="Inflow"  value={inflow}  positive />
+        <DarkMiniStat label="Outflow" value={outflow} negative />
       </div>
 
       <button
@@ -367,15 +563,15 @@ function Celebration({
   );
 }
 
-function Stat({ label, value, primary = false, positive = false, negative = false }: { label: string; value: number; primary?: boolean; positive?: boolean; negative?: boolean }) {
-  const color = primary ? "var(--color-brand-gold)" : positive ? "#34D399" : negative ? "#FCA5A5" : "white";
+function DarkMiniStat({ label, value, positive = false, negative = false }: { label: string; value: number; positive?: boolean; negative?: boolean }) {
+  const color = positive ? "#34D399" : negative ? "#FCA5A5" : "white";
   return (
-    <div className="rounded-xl px-3 py-2.5" style={{ background: primary ? "rgba(255,200,0,0.12)" : "rgba(255,255,255,0.06)" }}>
-      <div className="num" style={{ fontSize: 26, lineHeight: 1, letterSpacing: "-0.04em", color }}>
-        ₦{fmtMoney(value)}<span style={{ fontSize: 14, marginLeft: 2 }}>M</span>
-      </div>
-      <div className="font-extrabold text-[10px] uppercase mt-1" style={{ color: "rgba(255,255,255,0.7)", letterSpacing: "0.1em" }}>
+    <div>
+      <div className="font-extrabold text-[10px] uppercase mb-1" style={{ color: "rgba(255,255,255,0.6)", letterSpacing: "0.1em" }}>
         {label}
+      </div>
+      <div className="num font-black" style={{ fontSize: 18, letterSpacing: "-0.03em", color }}>
+        ₦{fmtMoney(value)}<span style={{ fontSize: 11, marginLeft: 1 }}>M</span>
       </div>
     </div>
   );

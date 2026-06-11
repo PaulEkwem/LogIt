@@ -25,6 +25,22 @@ export function LoginScreen() {
     if (step === "admin-pwd") document.getElementById("admin-pwd-field")?.focus();
   }, [step]);
 
+  // Auto-submit the moment we have 4 digits in code or PIN.
+  // Effect-based so any path that produces a full value triggers submit,
+  // not just the per-input handler.
+  useEffect(() => {
+    if (step === "code" && code.length === 4) {
+      routeAfterCode(code);
+    }
+  }, [code, step]);
+
+  useEffect(() => {
+    if (step === "pin" && pin.length === 4 && !loading) {
+      submitAmLogin(code, pin);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pin, step]);
+
   function handleCodeInput(i: number, v: string) {
     const digit = v.replace(/\D/g, "").slice(-1);
     const next = code.split("");
@@ -32,10 +48,7 @@ export function LoginScreen() {
     const joined = next.join("").slice(0, 4);
     setCode(joined);
     if (digit && i < 3) codeRefs.current[i + 1]?.focus();
-    if (joined.length === 4) {
-      // auto-advance on full code
-      setTimeout(() => routeAfterCode(joined), 120);
-    }
+    // submit handled by useEffect watching `code`
   }
 
   function handleCodeKeyDown(i: number, e: React.KeyboardEvent<HTMLInputElement>) {
@@ -65,9 +78,7 @@ export function LoginScreen() {
     const joined = next.join("").slice(0, 4);
     setPin(joined);
     if (digit && i < 3) pinRefs.current[i + 1]?.focus();
-    if (joined.length === 4) {
-      setTimeout(() => submitAmLogin(code, joined), 120);
-    }
+    // submit handled by useEffect watching `pin`
   }
 
   function handlePinKeyDown(i: number, e: React.KeyboardEvent<HTMLInputElement>) {
@@ -245,7 +256,7 @@ export function LoginScreen() {
               className="text-center text-[12px] font-bold mt-4 min-h-[18px]"
               style={{ color: error ? "#DC2626" : "var(--color-muted)" }}
             >
-              {error ?? (loading ? "Signing in…" : "Tap your PIN to continue")}
+              {error ?? (loading || pin.length === 4 ? "Signing in…" : "Tap your PIN to continue")}
             </div>
           </>
         )}

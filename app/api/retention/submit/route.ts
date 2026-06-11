@@ -5,10 +5,9 @@ type SubmitBody = {
   pledges_naira_m?: number;
   inflow_naira_m?: number;
   outflow_naira_m?: number;
-  retention_naira_m?: number;
 };
 
-function clean(v: unknown): number {
+function cleanNonNeg(v: unknown): number {
   if (typeof v !== "number" || !Number.isFinite(v) || v < 0) return NaN;
   return Math.round(v * 100) / 100;
 }
@@ -27,14 +26,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Only AMs can submit retention" }, { status: 403 });
   }
 
-  const pledges   = clean(body.pledges_naira_m);
-  const inflow    = clean(body.inflow_naira_m);
-  const outflow   = clean(body.outflow_naira_m);
-  const retention = clean(body.retention_naira_m);
+  const pledges = cleanNonNeg(body.pledges_naira_m);
+  const inflow  = cleanNonNeg(body.inflow_naira_m);
+  const outflow = cleanNonNeg(body.outflow_naira_m);
 
-  if ([pledges, inflow, outflow, retention].some((v) => Number.isNaN(v))) {
-    return NextResponse.json({ error: "All values must be non-negative numbers (₦M)" }, { status: 400 });
+  if ([pledges, inflow, outflow].some((v) => Number.isNaN(v))) {
+    return NextResponse.json({ error: "Pledges, inflow, and outflow must be non-negative ₦M numbers" }, { status: 400 });
   }
+
+  // Net retention = inflow - outflow. Can be negative (net outflow day).
+  const retention = Math.round((inflow - outflow) * 100) / 100;
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -58,5 +59,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: upErr.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, retention });
 }

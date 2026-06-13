@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminConsole, type PcGroup, type RetentionRow } from "@/components/AdminConsole";
+import { AdminConsole, type PcGroup, type RetentionRow, type WindowsState } from "@/components/AdminConsole";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +8,6 @@ export default async function AdminPage() {
   const { data: { user } } = await supabase.auth.getUser();
   const meta = user!.app_metadata as { pc_id?: string; division_id?: string };
 
-  // Resolve division: prefer division_id from token, fall back to pc → division.
   let divisionId = meta.division_id ?? "";
   if (!divisionId && meta.pc_id) {
     const { data } = await supabase.from("pcs").select("division_id").eq("id", meta.pc_id).maybeSingle();
@@ -16,20 +15,12 @@ export default async function AdminPage() {
   }
 
   const { data: division } = await supabase
-    .from("divisions")
-    .select("id, name")
-    .eq("id", divisionId)
-    .maybeSingle();
+    .from("divisions").select("id, name").eq("id", divisionId).maybeSingle();
   const divisionName = division?.name ?? "";
 
-  // All PCs in this division
   const { data: pcs } = await supabase
-    .from("pcs")
-    .select("id, name, pc_code")
-    .eq("division_id", divisionId)
-    .order("name");
+    .from("pcs").select("id, name, pc_code").eq("division_id", divisionId).order("name");
 
-  // All AMs in this division (RLS lets division-admin see all)
   const { data: ams } = await supabase
     .from("account_managers")
     .select("id, full_name, am_code, initials, color, daily_goal, team_label, pc_id")
@@ -38,9 +29,7 @@ export default async function AdminPage() {
 
   const today = new Date().toISOString().slice(0, 10);
   const { data: todaysReports } = await supabase
-    .from("daily_reports")
-    .select("am_id, acquired, total_opened")
-    .eq("report_date", today);
+    .from("daily_reports").select("am_id, acquired, total_opened").eq("report_date", today);
 
   const reportByAm = new Map((todaysReports ?? []).map((r) => [r.am_id, r]));
   const pcGroups: PcGroup[] = (pcs ?? []).map((pc) => {
@@ -61,66 +50,102 @@ export default async function AdminPage() {
         };
       });
     return { pc_id: pc.id, pc_name: pc.name, pc_code: pc.pc_code, rows };
-  }).filter((g) => g.rows.length > 0); // hide empty PCs
+  }).filter((g) => g.rows.length > 0);
 
   const totalCount = pcGroups.reduce((s, g) => s + g.rows.length, 0);
   const submittedCount = pcGroups.reduce((s, g) => s + g.rows.filter((r) => r.submitted).length, 0);
   const totalAcquired = (todaysReports ?? []).reduce((s, r) => s + r.acquired, 0);
   const totalOpened = (todaysReports ?? []).reduce((s, r) => s + r.total_opened, 0);
 
-  // Retention reports today across the division
+  // Report windows today (acquisition + retention midday + retention eod)
+  const { data: windows } = await supabase
+    .from("report_windows")
+    .select("report_type, slot, opened_at, closed_at, closed_reason")
+    .eq("division_id", divisionId)
+    .eq("report_date", today);
+
+  const findWindow = (type: "acquisition" | "retention", slot: string) =>
+    (windows ?? []).find((w) => w.report_type === type && w.slot === slot);
+
+  const acquisitionFiledCount = (todaysReports ?? []).length;
+  const acqWindow = findWindow("acquisition", "single");
+
+  // Retention rows for both slots
   const { data: retentionToday } = await supabase
     .from("retention_reports")
-    .select("pc_id, pledges_naira_m, inflow_naira_m, outflow_naira_m, retention_naira_m, filled_by_am_id, submitted_at")
+    .select("pc_id, slot, pledges_naira_m, inflow_naira_m, outflow_naira_m, retention_naira_m, filled_by_am_id, submitted_at")
     .eq("report_date", today);
 
   const fillerIds = Array.from(new Set((retentionToday ?? []).map((r) => r.filled_by_am_id)));
   const fillerById = new Map<string, { full_name: string; initials: string; color: string }>();
   if (fillerIds.length > 0) {
     const { data: fillers } = await supabase
-      .from("account_managers")
-      .select("id, full_name, initials, color")
-      .in("id", fillerIds);
+      .from("account_managers").select("id, full_name, initials, color").in("id", fillerIds);
     for (const f of fillers ?? []) {
       fillerById.set(f.id, { full_name: f.full_name, initials: f.initials, color: f.color });
     }
   }
 
-  const retentionByPc = new Map((retentionToday ?? []).map((r) => [r.pc_id, r]));
-  const retentionRows: RetentionRow[] = (pcs ?? []).map((pc) => {
-    const r = retentionByPc.get(pc.id);
-    if (!r) {
+  function rowsForSlot(slot: "midday" | "eod"): RetentionRow[] {
+    const slotRows = (retentionToday ?? []).filter((r) => r.slot === slot);
+    const byPc = new Map(slotRows.map((r) => [r.pc_id, r]));
+    return (pcs ?? []).map((pc) => {
+      const r = byPc.get(pc.id);
+      if (!r) {
+        return { pc_id: pc.id, pc_name: pc.name, pc_code: pc.pc_code, filed: false as const };
+      }
+      const filler = fillerById.get(r.filled_by_am_id);
       return {
         pc_id: pc.id,
         pc_name: pc.name,
         pc_code: pc.pc_code,
-        filed: false as const,
+        filed: true as const,
+        pledges: Number(r.pledges_naira_m),
+        inflow: Number(r.inflow_naira_m),
+        outflow: Number(r.outflow_naira_m),
+        net: Number(r.retention_naira_m),
+        filled_by_name: filler?.full_name ?? "Someone",
+        filled_by_initials: filler?.initials ?? "?",
+        filled_by_color: filler?.color ?? "#94A3B8",
+        submitted_at: r.submitted_at,
       };
-    }
-    const filler = fillerById.get(r.filled_by_am_id);
-    return {
-      pc_id: pc.id,
-      pc_name: pc.name,
-      pc_code: pc.pc_code,
-      filed: true as const,
-      pledges: Number(r.pledges_naira_m),
-      inflow: Number(r.inflow_naira_m),
-      outflow: Number(r.outflow_naira_m),
-      net: Number(r.retention_naira_m),
-      filled_by_name: filler?.full_name ?? "Someone",
-      filled_by_initials: filler?.initials ?? "?",
-      filled_by_color: filler?.color ?? "#94A3B8",
-      submitted_at: r.submitted_at,
-    };
-  });
+    });
+  }
 
-  const retentionFiledCount = retentionRows.filter((r) => r.filed).length;
-  const retentionTotals = retentionRows.reduce(
-    (acc, r) => r.filed
-      ? { pledges: acc.pledges + r.pledges, inflow: acc.inflow + r.inflow, outflow: acc.outflow + r.outflow, net: acc.net + r.net }
-      : acc,
-    { pledges: 0, inflow: 0, outflow: 0, net: 0 },
-  );
+  const middayRows = rowsForSlot("midday");
+  const eodRows    = rowsForSlot("eod");
+
+  function totalsFor(rows: RetentionRow[]) {
+    return rows.reduce(
+      (acc, r) => r.filed
+        ? { pledges: acc.pledges + r.pledges, inflow: acc.inflow + r.inflow, outflow: acc.outflow + r.outflow, net: acc.net + r.net }
+        : acc,
+      { pledges: 0, inflow: 0, outflow: 0, net: 0 },
+    );
+  }
+
+  const totalPcs = (pcs ?? []).length;
+
+  const windowsState: WindowsState = {
+    acquisition: {
+      opened_at: acqWindow?.opened_at ?? null,
+      closed_at: acqWindow?.closed_at ?? null,
+      filed: acquisitionFiledCount,
+      total: totalCount,
+    },
+    retentionMidday: {
+      opened_at: findWindow("retention", "midday")?.opened_at ?? null,
+      closed_at: findWindow("retention", "midday")?.closed_at ?? null,
+      filed: middayRows.filter((r) => r.filed).length,
+      total: totalPcs,
+    },
+    retentionEod: {
+      opened_at: findWindow("retention", "eod")?.opened_at ?? null,
+      closed_at: findWindow("retention", "eod")?.closed_at ?? null,
+      filed: eodRows.filter((r) => r.filed).length,
+      total: totalPcs,
+    },
+  };
 
   const { data: events } = await supabase
     .from("events")
@@ -132,9 +157,7 @@ export default async function AdminPage() {
   const eventList = await Promise.all(
     (events ?? []).map(async (ev) => {
       const { data: er } = await supabase
-        .from("event_reports")
-        .select("acquired, am_id")
-        .eq("event_id", ev.id);
+        .from("event_reports").select("acquired, am_id").eq("event_id", ev.id);
       return {
         ...ev,
         total_acquired: (er ?? []).reduce((s, r) => s + r.acquired, 0),
@@ -152,9 +175,11 @@ export default async function AdminPage() {
       totalAcquired={totalAcquired}
       totalOpened={totalOpened}
       events={eventList}
-      retentionRows={retentionRows}
-      retentionFiledCount={retentionFiledCount}
-      retentionTotals={retentionTotals}
+      windows={windowsState}
+      retentionMiddayRows={middayRows}
+      retentionEodRows={eodRows}
+      retentionMiddayTotals={totalsFor(middayRows)}
+      retentionEodTotals={totalsFor(eodRows)}
     />
   );
 }

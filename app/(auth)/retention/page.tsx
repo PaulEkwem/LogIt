@@ -15,31 +15,41 @@ export default async function RetentionPage() {
   const today = new Date().toISOString().slice(0, 10);
 
   const { data: pc } = await supabase
-    .from("pcs")
-    .select("name, pc_code")
-    .eq("id", meta.pc_id)
-    .single();
+    .from("pcs").select("name, pc_code, division_id")
+    .eq("id", meta.pc_id).single();
+
+  if (!pc) redirect("/home");
+
+  // Determine the active retention slot: prefer EOD if both open.
+  const { data: windows } = await supabase
+    .from("report_windows")
+    .select("slot, opened_at, closed_at")
+    .eq("division_id", pc.division_id)
+    .eq("report_type", "retention")
+    .eq("report_date", today);
+
+  const eodOpen    = (windows ?? []).some((w) => w.slot === "eod"    && w.opened_at && !w.closed_at);
+  const middayOpen = (windows ?? []).some((w) => w.slot === "midday" && w.opened_at && !w.closed_at);
+  const slot: "midday" | "eod" | null = eodOpen ? "eod" : middayOpen ? "midday" : null;
+
+  if (!slot) redirect("/home"); // window not open — bounce back
 
   const { data: me } = await supabase
-    .from("account_managers")
-    .select("full_name")
-    .eq("id", meta.am_id)
-    .single();
+    .from("account_managers").select("full_name").eq("id", meta.am_id).single();
 
   const { data: row } = await supabase
     .from("retention_reports")
     .select("pledges_naira_m, inflow_naira_m, outflow_naira_m, retention_naira_m, filled_by_am_id, submitted_at")
     .eq("pc_id", meta.pc_id)
     .eq("report_date", today)
+    .eq("slot", slot)
     .maybeSingle();
 
   let existing = null;
   if (row) {
     const { data: filler } = await supabase
-      .from("account_managers")
-      .select("full_name, initials, color")
-      .eq("id", row.filled_by_am_id)
-      .maybeSingle();
+      .from("account_managers").select("full_name, initials, color")
+      .eq("id", row.filled_by_am_id).maybeSingle();
     existing = {
       pledges_naira_m:   Number(row.pledges_naira_m),
       inflow_naira_m:    Number(row.inflow_naira_m),
@@ -54,8 +64,9 @@ export default async function RetentionPage() {
 
   return (
     <RetentionTallyFlow
-      pcName={pc?.name ?? ""}
-      pcCode={pc?.pc_code ?? ""}
+      slot={slot}
+      pcName={pc.name ?? ""}
+      pcCode={pc.pc_code ?? ""}
       amName={me?.full_name ?? "you"}
       existing={existing}
     />

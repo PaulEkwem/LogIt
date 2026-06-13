@@ -48,8 +48,11 @@ const PCS = [
   { code: "357", name: "Amuwo" },
   { code: "344", name: "Apapa" },
   { code: "364", name: "Bode Thomas" },
+  { code: "208", name: "Ibafon" },
   { code: "304", name: "Ikosi" },
+  { code: "207", name: "Ikotun 2" },
   { code: "377", name: "Ilupeju" },
+  { code: "206", name: "Ipaja" },
   { code: "115", name: "Lasu" },
   { code: "312", name: "MBA" },
   { code: "116", name: "MM Way Yaba" },
@@ -58,6 +61,10 @@ const PCS = [
   { code: "385", name: "Orile" },
   { code: "375", name: "Yaba" },
 ];
+
+// Codes from previous seeds that are no longer in use. We delete the auth
+// users so they can't sign in with the old credentials.
+const RETIRED_CODES = ["3122", "3125"];
 
 // ============================================================================
 // AMs — fill from spreadsheet. Each entry:
@@ -118,11 +125,18 @@ const AMS = [
   { code: "1151", first_name: "Opeyemi",   last_name: "",        pc_code: "115" },
   { code: "1153", first_name: "Olabisi",   last_name: "",        pc_code: "115" },
 
-  // PC 312 — MBA  (Paul & Ifunnaya kept under MBA per direction)
+  // PC 312 — MBA
   { code: "3121", first_name: "Rhoda",     last_name: "",        pc_code: "312" },
-  { code: "3122", first_name: "Ifunnaya",  last_name: "",        pc_code: "312" },
   { code: "3124", first_name: "Idowu",     last_name: "",        pc_code: "312" },
-  { code: "3125", first_name: "Paul",      last_name: "Ekwem",   pc_code: "312" },
+
+  // PC 206 — Ipaja
+  { code: "2061", first_name: "Paul",      last_name: "Ekwem",   pc_code: "206" },
+
+  // PC 207 — Ikotun 2
+  { code: "2071", first_name: "Ifunanya",  last_name: "",        pc_code: "207" },
+
+  // PC 208 — Ibafon
+  { code: "2081", first_name: "Chukwudi",  last_name: "",        pc_code: "208" },
 
   // PC 116 — MM Way Yaba
   { code: "1161", first_name: "Saheed",    last_name: "",        pc_code: "116" },
@@ -185,7 +199,32 @@ async function upsertAuthUser({ email, password, app_metadata, user_metadata }) 
   return { id: data.user.id, preservedOnboarding: false };
 }
 
+async function retireOldUsers() {
+  if (RETIRED_CODES.length === 0) return;
+  console.log(`→ Retiring old codes: ${RETIRED_CODES.join(", ")}`);
+  const { data: list } = await sb.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  for (const code of RETIRED_CODES) {
+    const email = `${code}@${SYNTH_DOMAIN}`;
+    const found = list?.users?.find((u) => u.email === email);
+    if (!found) {
+      console.log(`   ${code}: no auth user, skipping`);
+      continue;
+    }
+    // Delete AM row first (auth_user_id FK cascades on auth user delete, but
+    // we also want to free up the am_code in case it's ever reused).
+    await sb.from("account_managers").delete().eq("am_code", code);
+    const { error } = await sb.auth.admin.deleteUser(found.id);
+    if (error) {
+      console.error(`   ${code}: failed to delete auth user — ${error.message}`);
+    } else {
+      console.log(`   ${code}: deleted`);
+    }
+  }
+}
+
 async function main() {
+  await retireOldUsers();
+
   console.log("→ Division");
   let { data: division } = await sb.from("divisions").select("*").eq("name", DIVISION).maybeSingle();
   if (!division) {

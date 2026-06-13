@@ -27,13 +27,15 @@ const STEPS: { key: StepKey; label: string }[] = [
 const FLAT_THRESHOLD_M = 100; // below ₦100M (positive) = flat day
 
 export function RetentionTallyFlow({
-  pcName, pcCode, amName, existing,
+  slot, pcName, pcCode, amName, existing,
 }: {
+  slot: "midday" | "eod";
   pcName: string;
   pcCode: string;
   amName: string;
   existing: Existing;
 }) {
+  const slotLabel = slot === "eod" ? "5pm" : "12pm";
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [pledges, setPledges]     = useState<string>(existing ? String(existing.pledges_naira_m) : "");
@@ -62,6 +64,7 @@ export function RetentionTallyFlow({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          slot,
           pledges_naira_m: pledgesN,
           inflow_naira_m:  inflowN,
           outflow_naira_m: outflowN,
@@ -124,7 +127,7 @@ export function RetentionTallyFlow({
 
       <div className="flex-1 min-h-0 px-6 pb-8 flex flex-col animate-[fadeIn_0.22s_ease-out] overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch" }}>
         <div className="font-extrabold text-[10px] uppercase mb-2" style={{ color: "var(--color-muted)", letterSpacing: "0.14em" }}>
-          Step {step + 1} of {STEPS.length} · {pcName} ({pcCode}) · {current.label}
+          Step {step + 1} of {STEPS.length} · {pcName} ({pcCode}) · {slotLabel} · {current.label}
         </div>
 
         {existing && step === 0 && (

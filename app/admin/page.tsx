@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminConsole, type PcGroup } from "@/components/AdminConsole";
+import { AdminConsole, type PcGroup, type RetentionRow } from "@/components/AdminConsole";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +68,60 @@ export default async function AdminPage() {
   const totalAcquired = (todaysReports ?? []).reduce((s, r) => s + r.acquired, 0);
   const totalOpened = (todaysReports ?? []).reduce((s, r) => s + r.total_opened, 0);
 
+  // Retention reports today across the division
+  const { data: retentionToday } = await supabase
+    .from("retention_reports")
+    .select("pc_id, pledges_naira_m, inflow_naira_m, outflow_naira_m, retention_naira_m, filled_by_am_id, submitted_at")
+    .eq("report_date", today);
+
+  const fillerIds = Array.from(new Set((retentionToday ?? []).map((r) => r.filled_by_am_id)));
+  const fillerById = new Map<string, { full_name: string; initials: string; color: string }>();
+  if (fillerIds.length > 0) {
+    const { data: fillers } = await supabase
+      .from("account_managers")
+      .select("id, full_name, initials, color")
+      .in("id", fillerIds);
+    for (const f of fillers ?? []) {
+      fillerById.set(f.id, { full_name: f.full_name, initials: f.initials, color: f.color });
+    }
+  }
+
+  const retentionByPc = new Map((retentionToday ?? []).map((r) => [r.pc_id, r]));
+  const retentionRows: RetentionRow[] = (pcs ?? []).map((pc) => {
+    const r = retentionByPc.get(pc.id);
+    if (!r) {
+      return {
+        pc_id: pc.id,
+        pc_name: pc.name,
+        pc_code: pc.pc_code,
+        filed: false as const,
+      };
+    }
+    const filler = fillerById.get(r.filled_by_am_id);
+    return {
+      pc_id: pc.id,
+      pc_name: pc.name,
+      pc_code: pc.pc_code,
+      filed: true as const,
+      pledges: Number(r.pledges_naira_m),
+      inflow: Number(r.inflow_naira_m),
+      outflow: Number(r.outflow_naira_m),
+      net: Number(r.retention_naira_m),
+      filled_by_name: filler?.full_name ?? "Someone",
+      filled_by_initials: filler?.initials ?? "?",
+      filled_by_color: filler?.color ?? "#94A3B8",
+      submitted_at: r.submitted_at,
+    };
+  });
+
+  const retentionFiledCount = retentionRows.filter((r) => r.filed).length;
+  const retentionTotals = retentionRows.reduce(
+    (acc, r) => r.filed
+      ? { pledges: acc.pledges + r.pledges, inflow: acc.inflow + r.inflow, outflow: acc.outflow + r.outflow, net: acc.net + r.net }
+      : acc,
+    { pledges: 0, inflow: 0, outflow: 0, net: 0 },
+  );
+
   const { data: events } = await supabase
     .from("events")
     .select("id, name, location, start_date, end_date, status, created_at")
@@ -98,6 +152,9 @@ export default async function AdminPage() {
       totalAcquired={totalAcquired}
       totalOpened={totalOpened}
       events={eventList}
+      retentionRows={retentionRows}
+      retentionFiledCount={retentionFiledCount}
+      retentionTotals={retentionTotals}
     />
   );
 }

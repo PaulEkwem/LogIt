@@ -34,10 +34,8 @@ export function Leaderboard({
   myRank?: number;
 }) {
   const filedCount = rows.filter((r) => r.opened > 0 || r.acquired > 0).length;
-  // Show teammates alphabetically — no ranking energy.
-  const ordered = [...rows].sort((a, b) =>
-    a.full_name.localeCompare(b.full_name, undefined, { sensitivity: "base" }),
-  );
+  // Sort by AM code — neutral order, no ranking energy.
+  const ordered = [...rows].sort((a, b) => a.am_code.localeCompare(b.am_code));
 
   return (
     <>
@@ -71,7 +69,7 @@ export function Leaderboard({
           ))}
         </div>
         <div className="text-center mt-3 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
-          Sorted alphabetically · we all win when the team wins.
+          Sorted by code · we all win when the team wins.
         </div>
       </Section>
     </>

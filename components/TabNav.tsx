@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Trophy, BarChart3 } from "lucide-react";
+import { Home, Users, BarChart3 } from "lucide-react";
 
 const tabs = [
   { href: "/home",   label: "HOME",   icon: Home },
-  { href: "/team",   label: "TEAM",   icon: Trophy },
+  { href: "/team",   label: "TEAM",   icon: Users },
   { href: "/report", label: "REPORT", icon: BarChart3 },
 ];
 

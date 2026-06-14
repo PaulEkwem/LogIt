@@ -204,20 +204,34 @@ async function retireOldUsers() {
   console.log(`→ Retiring old codes: ${RETIRED_CODES.join(", ")}`);
   const { data: list } = await sb.auth.admin.listUsers({ page: 1, perPage: 1000 });
   for (const code of RETIRED_CODES) {
+    // First clear any reports that point at this AM (FK restrict would block).
+    // Test data only — these are old submissions from before the team move.
+    const { data: amRow } = await sb
+      .from("account_managers").select("id").eq("am_code", code).maybeSingle();
+    if (amRow?.id) {
+      await sb.from("retention_reports").delete().eq("filled_by_am_id", amRow.id);
+      await sb.from("daily_reports").delete().eq("am_id", amRow.id);
+    }
+
+    // Always drop the AM row — it may linger even after the auth user is gone.
+    const amDel = await sb.from("account_managers").delete().eq("am_code", code).select();
+    if (amDel.error) {
+      console.error(`   ${code}: account_managers delete failed — ${amDel.error.message}`);
+    } else if (amDel.data && amDel.data.length > 0) {
+      console.log(`   ${code}: removed AM row`);
+    }
+
     const email = `${code}@${SYNTH_DOMAIN}`;
     const found = list?.users?.find((u) => u.email === email);
     if (!found) {
-      console.log(`   ${code}: no auth user, skipping`);
+      console.log(`   ${code}: no auth user, AM row cleaned`);
       continue;
     }
-    // Delete AM row first (auth_user_id FK cascades on auth user delete, but
-    // we also want to free up the am_code in case it's ever reused).
-    await sb.from("account_managers").delete().eq("am_code", code);
     const { error } = await sb.auth.admin.deleteUser(found.id);
     if (error) {
       console.error(`   ${code}: failed to delete auth user — ${error.message}`);
     } else {
-      console.log(`   ${code}: deleted`);
+      console.log(`   ${code}: deleted auth user`);
     }
   }
 }

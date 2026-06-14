@@ -1,3 +1,5 @@
+import { CheckCircle2, Circle } from "lucide-react";
+
 type Row = {
   id: string;
   full_name: string;
@@ -16,112 +18,61 @@ function fmtToday() {
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-function ord(n: number) {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return s[(v - 20) % 10] || s[v] || s[0];
-}
-
-const podiumColors = [
-  "linear-gradient(180deg, #FCD34D, #B8860B)",
-  "linear-gradient(180deg, #CBD5E1, #64748B)",
-  "linear-gradient(180deg, #DDB892, #8B5E3C)",
-];
-const podiumHeights = [84, 68, 52];
-
 export function Leaderboard({
   rows,
   teamCount,
   teamTotalOpened,
   teamTotalAcquired,
   teamConv,
-  myRank,
 }: {
   rows: Row[];
   teamCount: number;
   teamTotalOpened: number;
   teamTotalAcquired: number;
   teamConv: number;
-  myRank: number;
+  /** Kept for backwards compatibility with the page; intentionally unused. */
+  myRank?: number;
 }) {
-  // Top three for podium (visual order: 2nd, 1st, 3rd)
-  const podiumOrder = [rows[1], rows[0], rows[2]].filter(Boolean);
+  const filedCount = rows.filter((r) => r.opened > 0 || r.acquired > 0).length;
+  // Show teammates alphabetically — no ranking energy.
+  const ordered = [...rows].sort((a, b) =>
+    a.full_name.localeCompare(b.full_name, undefined, { sensitivity: "base" }),
+  );
 
   return (
     <>
-      {/* Hero — your rank */}
       <div className="px-2 pt-9 flex flex-col">
         <div
           className="text-center font-extrabold text-[11px] uppercase"
           style={{ color: "var(--color-muted)", letterSpacing: "0.2em" }}
         >
-          Leaderboard · {fmtToday()}
+          Your team · {fmtToday()}
         </div>
 
-        <div className="flex items-baseline justify-center gap-1 mt-7">
-          <span className="num" style={{ fontSize: 108, lineHeight: 0.9, letterSpacing: "-0.07em", color: "var(--color-ink)" }}>
-            {myRank || "—"}
+        <div className="flex items-baseline justify-center gap-2 mt-7">
+          <span className="num" style={{ fontSize: 88, lineHeight: 0.9, letterSpacing: "-0.07em", color: "var(--color-ink)" }}>
+            {teamTotalOpened}
           </span>
-          <span className="font-black" style={{ fontSize: 36, color: "var(--color-ink)", letterSpacing: "-0.04em" }}>
-            {myRank ? ord(myRank) : ""}
+          <span className="font-black" style={{ fontSize: 22, color: "var(--color-muted)", letterSpacing: "-0.03em" }}>
+            opened
           </span>
         </div>
-        <div className="text-center mt-4 text-[15px] font-bold" style={{ color: "var(--color-body)" }}>
-          of {teamCount} in your team today.
+
+        <div className="text-center mt-4 text-[15px] font-bold" style={{ color: "var(--color-body)", letterSpacing: "-0.005em" }}>
+          From <b className="num text-(--color-ink) font-black">{teamTotalAcquired} acquisitions</b> — a{" "}
+          <b className="num text-(--color-ink) font-black">{teamConv}%</b> same-day conversion across the team.
         </div>
       </div>
 
-      <div
-        className="text-center font-bold text-[13px] mt-6 px-4 leading-snug"
-        style={{ color: "var(--color-body)", letterSpacing: "-0.005em" }}
-      >
-        Team opened <b className="num text-(--color-ink) font-black">{teamTotalOpened} accounts</b> from{" "}
-        <b className="num text-(--color-ink) font-black">{teamTotalAcquired} acquisitions</b> — a{" "}
-        <b className="num text-(--color-ink) font-black">{teamConv}%</b> same-day conversion.
-      </div>
-
-      {/* Podium */}
-      {podiumOrder.length >= 3 && (
-        <Section label="Top three">
-          <div className="grid grid-cols-3 gap-2 items-end mt-1">
-            {podiumOrder.map((r, i) => {
-              const rank = [2, 1, 3][i];
-              return (
-                <div key={r.id} className="flex flex-col items-center">
-                  <Avatar color={r.color} initials={r.initials} size={36} />
-                  <div
-                    className="font-extrabold text-[11px] text-center mt-1.5 mb-1.5"
-                    style={{ color: "var(--color-ink)", letterSpacing: "-0.005em", lineHeight: 1.2 }}
-                  >
-                    {r.full_name.split(" ")[0]}
-                  </div>
-                  <div
-                    className="w-full rounded-t-xl flex flex-col items-center justify-center text-white py-2.5"
-                    style={{
-                      background: podiumColors[rank - 1],
-                      height: podiumHeights[rank - 1],
-                    }}
-                  >
-                    <div className="num" style={{ fontSize: 26, lineHeight: 1, letterSpacing: "-0.03em" }}>
-                      {r.opened}
-                    </div>
-                    <div className="font-black text-[10px] mt-1 opacity-80" style={{ letterSpacing: "0.06em" }}>
-                      {rank}
-                      {ord(rank).toUpperCase()}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Section>
-      )}
-
-      {/* Standings */}
-      <Section label="Standings">
-        {rows.map((r, idx) => (
-          <Standing key={r.id} row={r} rank={idx + 1} />
-        ))}
+      <Section label={`Teammates today · ${filedCount}/${teamCount} filed`}>
+        <div className="rounded-2xl mt-2 overflow-hidden" style={{ background: "white", border: "1.5px solid var(--color-line)" }}>
+          {ordered.map((r, i) => (
+            <TeamRow key={r.id} row={r} first={i === 0} />
+          ))}
+        </div>
+        <div className="text-center mt-3 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
+          Sorted alphabetically · we all win when the team wins.
+        </div>
       </Section>
     </>
   );
@@ -141,66 +92,53 @@ function Section({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
-function Standing({ row, rank }: { row: Row; rank: number }) {
+function TeamRow({ row, first }: { row: Row; first: boolean }) {
   const me = row.isMe;
+  const filed = row.opened > 0 || row.acquired > 0;
   return (
     <div
-      className="grid items-center gap-3 py-3.5"
+      className="grid items-center gap-3 px-3 py-3"
       style={{
-        gridTemplateColumns: "22px 30px 1fr auto auto",
-        borderTop: "1px solid #F1F5F9",
-        ...(me
-          ? {
-              background: "linear-gradient(90deg, rgba(206,17,38,0.05), transparent 80%)",
-              marginInline: -8,
-              padding: "14px 8px 14px 12px",
-              borderLeft: "3px solid var(--color-brand-red)",
-              borderTop: "1px solid transparent",
-              borderRadius: 2,
-            }
-          : {}),
+        gridTemplateColumns: "auto 30px 1fr auto auto",
+        borderTop: first ? "none" : "1px solid #F1F5F9",
+        background: me ? "linear-gradient(90deg, rgba(206,17,38,0.04), transparent 80%)" : undefined,
       }}
     >
-      <div
-        className="num text-center text-[13px]"
-        style={{ color: me ? "var(--color-brand-red)" : "var(--color-muted)" }}
-      >
-        {rank}
-      </div>
+      {filed ? (
+        <CheckCircle2 className="w-4 h-4" style={{ color: "var(--color-funded)" }} />
+      ) : (
+        <Circle className="w-4 h-4" style={{ color: "var(--color-pending)" }} strokeWidth={2.25} />
+      )}
       <Avatar color={row.color} initials={row.initials} size={30} />
       <div className="min-w-0">
-        <div
-          className="font-extrabold text-[14px] flex items-center gap-1.5"
-          style={{ color: "var(--color-ink)", letterSpacing: "-0.01em" }}
-        >
+        <div className="font-extrabold text-[14px] flex items-center gap-1.5" style={{ color: "var(--color-ink)", letterSpacing: "-0.01em" }}>
           <span className="truncate">{row.full_name}</span>
           {me && (
-            <span
-              className="font-black text-[9px] rounded-md px-1.5 py-px text-white"
-              style={{ background: "var(--color-brand-red)", letterSpacing: "0.06em" }}
-            >
+            <span className="font-black text-[9px] rounded-md px-1.5 py-px text-white" style={{ background: "var(--color-brand-red)", letterSpacing: "0.06em" }}>
               YOU
             </span>
           )}
         </div>
-        <div
-          className="font-bold text-[11px] mt-0.5"
-          style={{ color: "var(--color-muted)" }}
-        >
+        <div className="font-bold text-[11px] mt-0.5" style={{ color: "var(--color-muted)" }}>
           Code {row.am_code}
+          {!filed && <> · <span style={{ color: "var(--color-pending)" }}>not filed yet</span></>}
         </div>
       </div>
       <div
-        className="num text-[20px]"
-        style={{ color: me ? "var(--color-brand-red)" : "var(--color-ink)", letterSpacing: "-0.03em" }}
+        className="num text-[18px] text-right min-w-[28px]"
+        style={{
+          color: filed ? "var(--color-ink)" : "var(--color-muted)",
+          fontWeight: filed ? 900 : 700,
+          letterSpacing: "-0.03em",
+        }}
       >
-        {row.opened}
+        {filed ? row.opened : "—"}
       </div>
       <div
         className="font-extrabold text-[11px] num text-right min-w-[32px]"
-        style={{ color: row.conv >= 50 ? "var(--color-funded)" : "var(--color-muted)" }}
+        style={{ color: row.conv >= 50 && filed ? "var(--color-funded)" : "var(--color-muted)" }}
       >
-        {row.acquired > 0 ? `${row.conv}%` : "—"}
+        {filed && row.acquired > 0 ? `${row.conv}%` : "—"}
       </div>
     </div>
   );

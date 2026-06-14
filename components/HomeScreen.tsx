@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Plus, MapPin, ArrowRight, Lock, Clock } from "lucide-react";
+import { Plus, MapPin, ArrowRight, Clock } from "lucide-react";
 import type { DailyReport } from "@/lib/types";
 import { useActiveEvents } from "@/lib/useActiveEvents";
 import { ReportTypeSheet } from "./ReportTypeSheet";
@@ -52,10 +52,21 @@ export function HomeScreen({
     return (
       <section className="px-2 pt-16 pb-8 flex flex-col items-center text-center">
         <div
-          className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
-          style={{ background: "var(--color-ink)", color: "var(--color-brand-gold)" }}
+          className="mb-5"
+          style={{ animation: "ltFloat 3s ease-in-out infinite", display: "inline-block" }}
+          aria-hidden
         >
-          <Lock className="w-8 h-8" strokeWidth={2.25} />
+          <div
+            style={{
+              fontSize: 72,
+              lineHeight: 1,
+              animation: "ltHourglass 3s ease-in-out infinite",
+              transformOrigin: "center",
+              display: "inline-block",
+            }}
+          >
+            ⏳
+          </div>
         </div>
         <div
           className="font-extrabold text-[11px] uppercase mb-2"
@@ -67,13 +78,13 @@ export function HomeScreen({
           className="font-black text-[26px] mb-2"
           style={{ color: "var(--color-ink)", letterSpacing: "-0.025em", lineHeight: 1.2 }}
         >
-          Today&apos;s report isn&apos;t open yet
+          No live report yet
         </h1>
         <p
           className="font-bold text-[14px] max-w-[300px]"
           style={{ color: "var(--color-body)", lineHeight: 1.55 }}
         >
-          Blessing will open it shortly. You&apos;ll see it pop up the moment she does — no need to refresh.
+          You&apos;ll see it pop up the moment one goes live — no need to refresh.
         </p>
 
         <div

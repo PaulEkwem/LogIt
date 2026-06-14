@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Plus, MapPin, ArrowRight, Clock } from "lucide-react";
+import { Plus, MapPin, ArrowRight } from "lucide-react";
 import type { DailyReport } from "@/lib/types";
 import { useActiveEvents } from "@/lib/useActiveEvents";
 import { ReportTypeSheet } from "./ReportTypeSheet";
@@ -18,6 +18,7 @@ export function HomeScreen({
   amName, goal, today, yesterday, divisionId, amId,
   retentionStatus,
   acquisitionOpen, retentionMiddayOpen, retentionEodOpen, activeRetentionSlot,
+  yesterdaySnapshot,
 }: {
   amName: string;
   goal: number;
@@ -30,6 +31,7 @@ export function HomeScreen({
   retentionMiddayOpen: boolean;
   retentionEodOpen: boolean;
   activeRetentionSlot: "midday" | "eod" | null;
+  yesterdaySnapshot: { meOpened: number; teamFiled: number; teamTotal: number; teamOpened: number } | null;
 }) {
   void amName; void amId; void goal;
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -87,20 +89,35 @@ export function HomeScreen({
           You&apos;ll see it pop up the moment one goes live — no need to refresh.
         </p>
 
-        <div
-          className="mt-9 rounded-2xl px-4 py-3.5 flex items-center gap-3 max-w-[320px]"
-          style={{ background: "white", border: "1.5px solid var(--color-line)" }}
-        >
-          <Clock className="w-5 h-5 flex-shrink-0" style={{ color: "var(--color-muted)" }} />
-          <div className="text-left">
-            <div className="font-black text-[12px]" style={{ color: "var(--color-ink)" }}>
-              Reports typically open at
+        {yesterdaySnapshot && (
+          <div
+            className="mt-9 rounded-2xl px-4 py-4 max-w-[320px] w-full text-left"
+            style={{ background: "white", border: "1.5px solid var(--color-line)" }}
+          >
+            <div
+              className="font-extrabold text-[10px] uppercase mb-2"
+              style={{ color: "var(--color-muted)", letterSpacing: "0.18em" }}
+            >
+              Yesterday
             </div>
-            <div className="font-bold text-[12px] mt-0.5" style={{ color: "var(--color-body)" }}>
-              Retention 12:00 · Retention 17:00 · Acquisition throughout the day
+            <div className="flex items-baseline gap-1.5">
+              <span className="num font-black" style={{ fontSize: 30, lineHeight: 1, color: "var(--color-ink)", letterSpacing: "-0.04em" }}>
+                {yesterdaySnapshot.meOpened}
+              </span>
+              <span className="font-black text-[13px]" style={{ color: "var(--color-body)" }}>
+                opened by you
+              </span>
+            </div>
+            <div className="font-bold text-[13px] mt-2" style={{ color: "var(--color-body)", lineHeight: 1.5 }}>
+              Team filed{" "}
+              <b className="num text-(--color-ink) font-black">
+                {yesterdaySnapshot.teamFiled}/{yesterdaySnapshot.teamTotal}
+              </b>
+              {" "}·{" "}
+              <b className="num text-(--color-ink) font-black">{yesterdaySnapshot.teamOpened}</b> accounts together.
             </div>
           </div>
-        </div>
+        )}
       </section>
     );
   }

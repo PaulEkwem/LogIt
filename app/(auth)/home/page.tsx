@@ -21,6 +21,33 @@ export default async function HomePage() {
   const yesterdayReport = reports?.find((r) => r.report_date !== today) ?? null;
   const divisionId = pcRow?.division_id ?? "";
 
+  // Yesterday team snapshot for the waiting-state card.
+  const yesterdayDate = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  const { data: teamAms } = await supabase
+    .from("account_managers")
+    .select("id")
+    .eq("pc_id", meta.pc_id)
+    .is("archived_at", null);
+  const teamAmIds = (teamAms ?? []).map((a) => a.id);
+
+  let yesterdaySnapshot: { meOpened: number; teamFiled: number; teamTotal: number; teamOpened: number } | null = null;
+  if (teamAmIds.length > 0) {
+    const { data: yReports } = await supabase
+      .from("daily_reports")
+      .select("am_id, total_opened")
+      .eq("report_date", yesterdayDate)
+      .in("am_id", teamAmIds);
+    if ((yReports ?? []).length > 0) {
+      const me = (yReports ?? []).find((r) => r.am_id === meta.am_id);
+      yesterdaySnapshot = {
+        meOpened: me?.total_opened ?? 0,
+        teamFiled: (yReports ?? []).length,
+        teamTotal: teamAmIds.length,
+        teamOpened: (yReports ?? []).reduce((s, r) => s + r.total_opened, 0),
+      };
+    }
+  }
+
   // Fetch windows + active retention slot fill status in parallel.
   const [{ data: windows }, { data: retentionToday }] = await Promise.all([
     supabase.from("report_windows")
@@ -75,6 +102,7 @@ export default async function HomePage() {
       retentionMiddayOpen={retentionMiddayOpen}
       retentionEodOpen={retentionEodOpen}
       activeRetentionSlot={activeRetentionSlot}
+      yesterdaySnapshot={yesterdaySnapshot}
     />
   );
 }

@@ -35,7 +35,8 @@ const ADMIN_PWD = "admin2026";
 const PIN_PREFIX = "lgt-";
 const passwordFromPin = (pin) => `${PIN_PREFIX}${pin}`;
 
-const DIVISION = "SME LAGOS MAINLAND DIVISION 1";
+const DIVISION = "SME LAGOS MAINLAND 1";
+const PREVIOUS_DIVISION_NAMES = ["SME LAGOS MAINLAND DIVISION 1"];
 
 // ============================================================================
 // PCs — full team name + 3-digit PC code.
@@ -240,6 +241,16 @@ async function main() {
   await retireOldUsers();
 
   console.log("→ Division");
+  // Migrate any previous name to the canonical one before upserting.
+  for (const oldName of PREVIOUS_DIVISION_NAMES) {
+    const { data: stale } = await sb.from("divisions").select("id").eq("name", oldName).maybeSingle();
+    if (stale?.id) {
+      const upd = await sb.from("divisions").update({ name: DIVISION }).eq("id", stale.id);
+      if (upd.error) console.error(`   division rename failed: ${upd.error.message}`);
+      else console.log(`   renamed "${oldName}" → "${DIVISION}"`);
+    }
+  }
+
   let { data: division } = await sb.from("divisions").select("*").eq("name", DIVISION).maybeSingle();
   if (!division) {
     const ins = await sb.from("divisions").insert({ name: DIVISION }).select().single();

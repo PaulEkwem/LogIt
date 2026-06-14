@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminConsole, type PcGroup, type RetentionRow, type WindowsState } from "@/components/AdminConsole";
+import type { TeamItem } from "@/components/TeamManagement";
 
 export const dynamic = "force-dynamic";
 
@@ -18,8 +19,10 @@ export default async function AdminPage() {
     .from("divisions").select("id, name").eq("id", divisionId).maybeSingle();
   const divisionName = division?.name ?? "";
 
-  const { data: pcs } = await supabase
-    .from("pcs").select("id, name, pc_code").eq("division_id", divisionId).order("name");
+  const { data: pcsAll } = await supabase
+    .from("pcs").select("id, name, pc_code, archived_at").eq("division_id", divisionId).order("name");
+
+  const pcs = (pcsAll ?? []).filter((p) => !p.archived_at);
 
   const { data: ams } = await supabase
     .from("account_managers")
@@ -166,6 +169,19 @@ export default async function AdminPage() {
     }),
   );
 
+  // Teams list for management — includes archived PCs (Blessing can restore them)
+  const amCountByPc = new Map<string, number>();
+  for (const am of ams ?? []) {
+    amCountByPc.set(am.pc_id, (amCountByPc.get(am.pc_id) ?? 0) + 1);
+  }
+  const teams: TeamItem[] = (pcsAll ?? []).map((p) => ({
+    pc_id: p.id,
+    pc_name: p.name,
+    pc_code: p.pc_code,
+    am_count: amCountByPc.get(p.id) ?? 0,
+    archived: !!p.archived_at,
+  }));
+
   return (
     <AdminConsole
       divisionName={divisionName}
@@ -180,6 +196,7 @@ export default async function AdminPage() {
       retentionEodRows={eodRows}
       retentionMiddayTotals={totalsFor(middayRows)}
       retentionEodTotals={totalsFor(eodRows)}
+      teams={teams}
     />
   );
 }

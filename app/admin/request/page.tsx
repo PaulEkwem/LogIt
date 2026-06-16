@@ -365,9 +365,7 @@ export default async function AdminRequestPage({ searchParams }: RouteProps) {
           data={chartCells}
           height={range === "today" ? 160 : 200}
           signed={tab === "retention"}
-          formatValue={tab === "retention"
-            ? (n) => `${n < 0 ? "−" : "+"}₦${fmtMoney(n)}M`
-            : (n) => `${n}`}
+          valueFormat={tab === "retention" ? "naira-millions" : "number"}
           baseColor="var(--color-brand-red)"
           emptyHint="No data in this range yet."
         />

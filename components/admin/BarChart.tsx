@@ -19,18 +19,33 @@ export type BarDatum = {
   };
 };
 
+export type ValueFormat = "number" | "naira-millions";
+
+function fmtMoney(n: number): string {
+  const abs = Math.abs(n);
+  if (abs === 0) return "0";
+  if (abs < 1) return abs.toFixed(2);
+  if (abs < 10) return abs.toFixed(1);
+  return abs.toLocaleString(undefined, { maximumFractionDigits: 1 });
+}
+
+function formatValue(n: number, kind: ValueFormat): string {
+  if (kind === "naira-millions") return `${n < 0 ? "−" : "+"}₦${fmtMoney(n)}M`;
+  return String(n);
+}
+
 export function BarChart({
   data,
   height = 200,
   signed = false,
-  formatValue,
+  valueFormat = "number",
   baseColor = "var(--color-brand-red)",
   emptyHint = "No data in this range yet.",
 }: {
   data: BarDatum[];
   height?: number;
   signed?: boolean;
-  formatValue?: (n: number) => string;
+  valueFormat?: ValueFormat;
   baseColor?: string;
   emptyHint?: string;
 }) {
@@ -45,7 +60,7 @@ export function BarChart({
     );
   }
 
-  const fmt = formatValue ?? ((n) => String(n));
+  const fmt = (n: number) => formatValue(n, valueFormat);
   const dataCells = data.filter((d) => !d.cta);
   const max = Math.max(0, ...dataCells.map((d) => d.value));
   const min = signed ? Math.min(0, ...dataCells.map((d) => d.value)) : 0;

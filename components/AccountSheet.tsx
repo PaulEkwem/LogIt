@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Flame, KeyRound, LogOut, X } from "lucide-react";
+import { Flame, LogOut, X } from "lucide-react";
 
 export function AccountSheet({
   open, onClose,
@@ -128,15 +128,6 @@ export function AccountSheet({
           {/* Actions */}
           <div className="mt-6 flex flex-col gap-2">
             <button
-              disabled
-              className="w-full rounded-2xl py-3.5 font-extrabold text-[14px] flex items-center justify-center gap-2 opacity-50 cursor-not-allowed"
-              style={{ background: "white", border: "1.5px solid var(--color-line)", color: "var(--color-body)" }}
-            >
-              <KeyRound className="w-4 h-4" />
-              Change PIN
-              <span className="font-bold text-[10px] ml-1" style={{ color: "var(--color-muted)" }}>(soon)</span>
-            </button>
-            <button
               onClick={signOut}
               className="w-full rounded-2xl py-3.5 font-extrabold text-[14px] flex items-center justify-center gap-2"
               style={{ background: "white", border: "1.5px solid #FECACA", color: "var(--color-brand-red)" }}
@@ -144,6 +135,9 @@ export function AccountSheet({
               <LogOut className="w-4 h-4" />
               Sign out
             </button>
+            <div className="text-center text-[11px] font-bold mt-1" style={{ color: "var(--color-muted)" }}>
+              Forgot your PIN? Ask your admin to reset it.
+            </div>
           </div>
         </div>
       </div>

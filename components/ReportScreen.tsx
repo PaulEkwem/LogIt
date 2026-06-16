@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { MapPin, ArrowRight } from "lucide-react";
 import type { DailyReport } from "@/lib/types";
-import { ACCOUNT_TYPES } from "@/lib/types";
 
 export type CampaignSummary = {
   event_id: string;
@@ -96,17 +95,6 @@ export function ReportScreen({
 
   const showChart = data.length > 1;
 
-  // Type breakdown (works for both metrics — types only meaningful for opened, but we keep visible)
-  const typeTotals = useMemo(() => {
-    const totals: Record<string, number> = { t1: 0, t3: 0, gt: 0, sm: 0, sk: 0 };
-    data.forEach((d) => {
-      totals.t1 += d.type_t1; totals.t3 += d.type_t3; totals.gt += d.type_gt;
-      totals.sm += d.type_sm; totals.sk += d.type_sk;
-    });
-    return totals;
-  }, [data]);
-  const typeMax = Object.values(typeTotals).reduce((s, v) => s + v, 0) || 1;
-
   return (
     <>
       <SegControl
@@ -183,40 +171,6 @@ export function ReportScreen({
           <Chart data={data} metric={metric} goal={goal} />
         </Section>
       )}
-
-      <Section label="By account type">
-        <div className="mt-1.5">
-          {[...ACCOUNT_TYPES].sort((a, b) => (typeTotals[b.key] ?? 0) - (typeTotals[a.key] ?? 0)).map((t, i) => {
-            const count = typeTotals[t.key] ?? 0;
-            const pct = typeMax > 0 ? Math.round((count / typeMax) * 100) : 0;
-            return (
-              <div key={t.key} className="py-3.5" style={i === 0 ? { paddingTop: 4 } : { borderTop: "1px solid #F1F5F9" }}>
-                <div className="flex items-center gap-2.5 mb-2">
-                  <span
-                    className="inline-flex items-center justify-center font-black rounded-lg"
-                    style={{
-                      width: 28, height: 28, fontSize: 10, letterSpacing: "-0.02em",
-                      background: `var(--color-${t.key}bg)`,
-                      color: `var(--color-${t.key})`,
-                    }}
-                  >
-                    {t.code}
-                  </span>
-                  <span className="font-extrabold text-[14px]" style={{ color: "var(--color-ink)", letterSpacing: "-0.005em" }}>
-                    {t.label}
-                  </span>
-                  <span className="ml-auto num text-[18px]" style={{ color: "var(--color-ink)", letterSpacing: "-0.03em" }}>
-                    {count}
-                  </span>
-                </div>
-                <div className="h-1 rounded-full overflow-hidden" style={{ background: "#F1F5F9", marginLeft: 38 }}>
-                  <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${pct}%`, background: `var(--color-${t.key})` }} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Section>
 
       {myCampaigns.length > 0 && (
         <Section label="Recent event">

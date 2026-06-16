@@ -1,8 +1,8 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { RetentionTable, type RetentionRow, type RetentionTotals } from "@/components/admin/RetentionTable";
-import { AmActionRow, type AdminAmRow } from "@/components/admin/AmActionRow";
+import { AcquisitionLive, type AmEntry } from "@/components/admin/AcquisitionLive";
+import { RetentionLive, type TeamEntry } from "@/components/admin/RetentionLive";
 import Link from "next/link";
-import { PlayCircle, Users2, Megaphone, ArrowRight } from "lucide-react";
+import { PlayCircle, ArrowRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -27,30 +27,60 @@ export default async function AdminDashboard() {
     .from("divisions").select("name").eq("id", divisionId).maybeSingle();
   const divisionName = division?.name ?? "";
 
-  const { data: pcs } = await supabase
-    .from("pcs").select("id, name, pc_code").eq("division_id", divisionId).is("archived_at", null).order("name");
-
-  const { data: ams } = await supabase
-    .from("account_managers")
-    .select("id, full_name, am_code, initials, color, daily_goal, team_label, pc_id")
-    .is("archived_at", null).order("am_code");
-
   const today = new Date().toISOString().slice(0, 10);
-  const { data: todaysReports } = await supabase
-    .from("daily_reports").select("am_id, acquired, total_opened").eq("report_date", today);
 
+  const [
+    { data: pcs },
+    { data: ams },
+    { data: todaysReports },
+    { data: retentionToday },
+    { data: windows },
+  ] = await Promise.all([
+    supabase.from("pcs").select("id, name, pc_code").eq("division_id", divisionId).is("archived_at", null).order("name"),
+    supabase.from("account_managers")
+      .select("id, full_name, am_code, initials, color, pc_id")
+      .is("archived_at", null),
+    supabase.from("daily_reports").select("am_id, acquired, total_opened, opened_same_day, submitted_at").eq("report_date", today),
+    supabase.from("retention_reports")
+      .select("pc_id, slot, pledges_naira_m, inflow_naira_m, outflow_naira_m, retention_naira_m, filled_by_am_id, submitted_at")
+      .eq("report_date", today),
+    supabase.from("report_windows")
+      .select("report_type, slot, opened_at, closed_at")
+      .eq("division_id", divisionId).eq("report_date", today),
+  ]);
+
+  const pcById = new Map((pcs ?? []).map((p) => [p.id, p]));
+  const findOpen = (type: "acquisition" | "retention", slot: string) =>
+    (windows ?? []).find((w) => w.report_type === type && w.slot === slot && w.opened_at && !w.closed_at);
+
+  const acquisitionOpen = !!findOpen("acquisition", "single");
+  const middayOpen      = !!findOpen("retention", "midday");
+  const eodOpen         = !!findOpen("retention", "eod");
+  const nothingOpen     = !acquisitionOpen && !middayOpen && !eodOpen;
+
+  // Acquisition entries
   const reportByAm = new Map((todaysReports ?? []).map((r) => [r.am_id, r]));
-  const totalCount = (ams ?? []).length;
-  const submittedCount = (todaysReports ?? []).length;
-  const totalAcquired = (todaysReports ?? []).reduce((s, r) => s + r.acquired, 0);
-  const totalOpened   = (todaysReports ?? []).reduce((s, r) => s + r.total_opened, 0);
+  const acquisitionEntries: AmEntry[] = (ams ?? []).map((am) => {
+    const r = reportByAm.get(am.id);
+    const pc = pcById.get(am.pc_id);
+    const acquired = r?.acquired ?? 0;
+    const opened = r?.total_opened ?? 0;
+    const sameDay = r?.opened_same_day ?? 0;
+    const conv = acquired > 0 ? Math.round((sameDay / acquired) * 100) : 0;
+    return {
+      id: am.id,
+      full_name: am.full_name,
+      am_code: am.am_code,
+      initials: am.initials,
+      color: am.color,
+      pc_name: pc?.name ?? "",
+      filed: !!r,
+      acquired, opened, conv,
+      submitted_at: r?.submitted_at ?? null,
+    };
+  });
 
-  // Retention rows for both slots
-  const { data: retentionToday } = await supabase
-    .from("retention_reports")
-    .select("pc_id, slot, pledges_naira_m, inflow_naira_m, outflow_naira_m, retention_naira_m, filled_by_am_id, submitted_at")
-    .eq("report_date", today);
-
+  // Retention entries
   const fillerIds = Array.from(new Set((retentionToday ?? []).map((r) => r.filled_by_am_id)));
   const fillerById = new Map<string, { full_name: string; initials: string; color: string }>();
   if (fillerIds.length > 0) {
@@ -61,134 +91,128 @@ export default async function AdminDashboard() {
     }
   }
 
-  function rowsForSlot(slot: "midday" | "eod"): RetentionRow[] {
+  function entriesForSlot(slot: "midday" | "eod"): TeamEntry[] {
     const slotRows = (retentionToday ?? []).filter((r) => r.slot === slot);
     const byPc = new Map(slotRows.map((r) => [r.pc_id, r]));
     return (pcs ?? []).map((pc) => {
       const r = byPc.get(pc.id);
       if (!r) {
-        return { pc_id: pc.id, pc_name: pc.name, pc_code: pc.pc_code, filed: false as const };
+        return {
+          pc_id: pc.id, pc_name: pc.name, pc_code: pc.pc_code, filed: false,
+          pledges: 0, inflow: 0, outflow: 0, net: 0,
+          filled_by_name: null, filled_by_initials: null, filled_by_color: null,
+          submitted_at: null,
+        };
       }
-      const filler = fillerById.get(r.filled_by_am_id);
+      const f = fillerById.get(r.filled_by_am_id);
       return {
-        pc_id: pc.id, pc_name: pc.name, pc_code: pc.pc_code, filed: true as const,
+        pc_id: pc.id, pc_name: pc.name, pc_code: pc.pc_code, filed: true,
         pledges: Number(r.pledges_naira_m),
         inflow:  Number(r.inflow_naira_m),
         outflow: Number(r.outflow_naira_m),
         net:     Number(r.retention_naira_m),
-        filled_by_name:     filler?.full_name ?? "Someone",
-        filled_by_initials: filler?.initials ?? "?",
-        filled_by_color:    filler?.color ?? "#94A3B8",
-        submitted_at:       r.submitted_at,
+        filled_by_name:     f?.full_name ?? null,
+        filled_by_initials: f?.initials ?? null,
+        filled_by_color:    f?.color ?? null,
+        submitted_at: r.submitted_at,
       };
     });
   }
 
-  function totalsFor(rows: RetentionRow[]): RetentionTotals {
-    return rows.reduce(
-      (acc, r) => r.filed
-        ? { pledges: acc.pledges + r.pledges, inflow: acc.inflow + r.inflow, outflow: acc.outflow + r.outflow, net: acc.net + r.net }
-        : acc,
-      { pledges: 0, inflow: 0, outflow: 0, net: 0 },
-    );
-  }
-
-  const middayRows = rowsForSlot("midday");
-  const eodRows    = rowsForSlot("eod");
-  const middayFiled = middayRows.filter((r) => r.filed).length;
-  const eodFiled    = eodRows.filter((r) => r.filed).length;
+  const middayEntries = entriesForSlot("midday");
+  const eodEntries    = entriesForSlot("eod");
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       <PageHead title="Dashboard" sub={`${divisionName} · ${fmtToday()}`} />
 
-      {/* Hero */}
-      <div className="rounded-2xl p-5" style={{ background: "white", border: "1.5px solid var(--color-line)" }}>
-        <div className="font-extrabold text-[10px] uppercase mb-2" style={{ color: "var(--color-muted)", letterSpacing: "0.16em" }}>
-          Acquisition today
+      {nothingOpen && (
+        <div className="rounded-2xl p-8 text-center" style={{ background: "white", border: "1.5px dashed var(--color-line)" }}>
+          <div className="text-[48px] mb-2" aria-hidden>📭</div>
+          <div className="font-black text-[16px]" style={{ color: "var(--color-ink)", letterSpacing: "-0.015em" }}>
+            No live report right now
+          </div>
+          <div className="font-bold text-[12px] mt-1 max-w-[420px] mx-auto" style={{ color: "var(--color-body)", lineHeight: 1.5 }}>
+            Open one from <Link href="/admin/windows" className="font-extrabold underline" style={{ color: "var(--color-brand-red)" }}>Live reports</Link> when you&apos;re ready. AMs will be unlocked instantly.
+          </div>
         </div>
-        <div className="flex items-baseline gap-3 flex-wrap">
-          <Stat big value={submittedCount} suffix={`/${totalCount}`} label="AMs filed" />
-          <Stat value={totalAcquired} label="acquired" />
-          <Stat value={totalOpened}   label="opened" />
-        </div>
-      </div>
-
-      {/* Quick links */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <QuickLink href="/admin/windows" icon={<PlayCircle className="w-5 h-5" />} title="Open a report" sub="Acquisition · Retention 12pm · 5pm" />
-        <QuickLink href="/admin/teams"   icon={<Users2 className="w-5 h-5" />}     title="Teams & AMs"     sub="Add, rename, archive, reset PIN" />
-        <QuickLink href="/admin/campaigns" icon={<Megaphone className="w-5 h-5" />} title="Campaigns"       sub="Cluster marketing events" />
-      </div>
-
-      {/* Retention midday */}
-      {(retentionToday?.some((r) => r.slot === "midday") || middayFiled > 0) && (
-        <section>
-          <SectionTitle>Retention 12pm · {middayFiled}/{middayRows.length} filed</SectionTitle>
-          <RetentionTable rows={middayRows} totals={totalsFor(middayRows)} />
-        </section>
       )}
 
-      {/* Retention EOD */}
-      {(retentionToday?.some((r) => r.slot === "eod") || eodFiled > 0) && (
-        <section>
-          <SectionTitle>Retention 5pm · {eodFiled}/{eodRows.length} filed</SectionTitle>
-          <RetentionTable rows={eodRows} totals={totalsFor(eodRows)} />
-        </section>
+      {acquisitionOpen && (
+        <SectionBlock
+          title="Customer acquisition"
+          subtitle={`${acquisitionEntries.filter((e) => e.filed).length}/${acquisitionEntries.length} AMs filed`}
+          href="/admin/windows"
+        >
+          <AcquisitionLive entries={acquisitionEntries} />
+        </SectionBlock>
       )}
 
-      {/* AMs by team — read-only on dashboard */}
-      <section>
-        <SectionTitle>Account Managers · {totalCount}</SectionTitle>
-        <div className="flex flex-col gap-3">
-          {(pcs ?? []).map((pc) => {
-            const teamRows: AdminAmRow[] = (ams ?? [])
-              .filter((am) => am.pc_id === pc.id)
-              .map((am) => {
-                const r = reportByAm.get(am.id);
-                return {
-                  id: am.id,
-                  full_name: am.full_name,
-                  am_code: am.am_code,
-                  initials: am.initials,
-                  color: am.color,
-                  daily_goal: am.daily_goal,
-                  team_label: am.team_label ?? null,
-                  submitted: !!r,
-                  opened: r?.total_opened ?? null,
-                };
-              });
-            if (teamRows.length === 0) return null;
-            const subFiled = teamRows.filter((r) => r.submitted).length;
-            return (
-              <div key={pc.id}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="font-black text-[13px]" style={{ color: "var(--color-ink)", letterSpacing: "-0.01em" }}>{pc.name}</span>
-                    <span className="font-extrabold text-[10px] rounded-md px-1.5 py-0.5" style={{ background: "#F1F5F9", color: "var(--color-muted)", letterSpacing: "0.06em" }}>
-                      PC {pc.pc_code}
-                    </span>
-                  </div>
-                  <span className="font-extrabold text-[12px]" style={{ color: "var(--color-muted)" }}>
-                    {subFiled}/{teamRows.length}
-                  </span>
-                </div>
-                <div className="rounded-2xl px-3" style={{ background: "white", border: "1.5px solid var(--color-line)" }}>
-                  {teamRows.map((row, i) => (
-                    <AmActionRow key={row.id} row={row} first={i === 0} showActions={false} />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <div className="mt-3 text-center">
-          <Link href="/admin/teams" className="font-extrabold text-[12px] inline-flex items-center gap-1" style={{ color: "var(--color-brand-red)" }}>
-            Manage teams & AMs <ArrowRight className="w-3 h-3" />
-          </Link>
-        </div>
-      </section>
+      {middayOpen && (
+        <SectionBlock
+          title="Retention · 12pm"
+          subtitle={`${middayEntries.filter((e) => e.filed).length}/${middayEntries.length} teams filed`}
+          href="/admin/windows"
+        >
+          <RetentionLive entries={middayEntries} />
+        </SectionBlock>
+      )}
+
+      {eodOpen && (
+        <SectionBlock
+          title="Retention · 5pm"
+          subtitle={`${eodEntries.filter((e) => e.filed).length}/${eodEntries.length} teams filed`}
+          href="/admin/windows"
+        >
+          <RetentionLive entries={eodEntries} />
+        </SectionBlock>
+      )}
+
+      {!nothingOpen && (
+        <Link
+          href="/admin/windows"
+          className="rounded-2xl p-4 flex items-center gap-3"
+          style={{ background: "white", border: "1.5px solid var(--color-line)" }}
+        >
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(206,17,38,0.08)", color: "var(--color-brand-red)" }}>
+            <PlayCircle className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-black text-[13px]" style={{ color: "var(--color-ink)", letterSpacing: "-0.01em" }}>Open or close windows</div>
+            <div className="font-bold text-[11px] mt-0.5" style={{ color: "var(--color-muted)" }}>Controls + downloads live here</div>
+          </div>
+          <ArrowRight className="w-4 h-4" style={{ color: "var(--color-muted)" }} />
+        </Link>
+      )}
     </div>
+  );
+}
+
+function SectionBlock({
+  title, subtitle, href, children,
+}: {
+  title: string;
+  subtitle: string;
+  href: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <div className="font-black text-[15px]" style={{ color: "var(--color-ink)", letterSpacing: "-0.015em" }}>
+            {title}
+          </div>
+          <div className="font-bold text-[12px] mt-0.5" style={{ color: "var(--color-muted)" }}>
+            {subtitle}
+          </div>
+        </div>
+        <Link href={href} className="font-extrabold text-[11px] inline-flex items-center gap-1" style={{ color: "var(--color-brand-red)" }}>
+          Manage <ArrowRight className="w-3 h-3" />
+        </Link>
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -202,39 +226,5 @@ function PageHead({ title, sub }: { title: string; sub: string }) {
         {title}
       </h1>
     </div>
-  );
-}
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="font-extrabold text-[11px] uppercase mb-2" style={{ color: "var(--color-muted)", letterSpacing: "0.16em" }}>
-      {children}
-    </div>
-  );
-}
-
-function Stat({ value, suffix, label, big = false }: { value: number; suffix?: string; label: string; big?: boolean }) {
-  return (
-    <div className="flex items-baseline gap-1.5">
-      <span className="num font-black" style={{ fontSize: big ? 38 : 22, lineHeight: 1, color: "var(--color-ink)", letterSpacing: "-0.04em" }}>
-        {value}{suffix}
-      </span>
-      <span className="font-bold text-[12px]" style={{ color: "var(--color-muted)" }}>{label}</span>
-    </div>
-  );
-}
-
-function QuickLink({ href, icon, title, sub }: { href: string; icon: React.ReactNode; title: string; sub: string }) {
-  return (
-    <Link href={href} className="rounded-2xl p-4 flex items-center gap-3 transition-transform active:scale-[0.99]" style={{ background: "white", border: "1.5px solid var(--color-line)" }}>
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(206,17,38,0.08)", color: "var(--color-brand-red)" }}>
-        {icon}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="font-black text-[13px]" style={{ color: "var(--color-ink)", letterSpacing: "-0.01em" }}>{title}</div>
-        <div className="font-bold text-[11px] mt-0.5" style={{ color: "var(--color-muted)" }}>{sub}</div>
-      </div>
-      <ArrowRight className="w-4 h-4 flex-shrink-0" style={{ color: "var(--color-muted)" }} />
-    </Link>
   );
 }

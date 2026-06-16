@@ -21,13 +21,21 @@ const sb = createClient(url, key, { auth: { autoRefreshToken: false, persistSess
 
 const { data, error } = await sb
   .from("pcs")
-  .select("pc_code, name, archived_at")
+  .select("pc_code, name, division_id, archived_at")
   .order("name");
 
 if (error) { console.error(error); process.exit(1); }
 
 console.log("PCs in database:");
 for (const p of data ?? []) {
-  console.log(`  ${p.pc_code} | name="${p.name}" ${p.archived_at ? "(archived)" : ""}`);
+  console.log(`  ${p.pc_code} | name="${p.name}" | div=${p.division_id?.slice(0, 8) ?? "—"} ${p.archived_at ? "(archived)" : ""}`);
 }
 console.log(`Total: ${(data ?? []).length}`);
+
+// Also list admin's app_metadata
+const { data: list } = await sb.auth.admin.listUsers({ page: 1, perPage: 1000 });
+const admin = list?.users?.find((u) => u.email === "admin@logit.invalid");
+if (admin) {
+  console.log("\nAdmin (Blessing) app_metadata:");
+  console.log(JSON.stringify(admin.app_metadata, null, 2));
+}

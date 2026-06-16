@@ -41,15 +41,19 @@ export default async function AdminRequestPage({ searchParams }: RouteProps) {
   const tab: Tab = params.tab === "retention" ? "retention" : "acquisition";
   const slot: Slot = params.slot === "eod" ? "eod" : "midday";
   const range: Range = params.range === "today" ? "today"
+    : params.range === "yesterday" ? "yesterday"
     : params.range === "month" ? "month"
     : params.range === "custom" ? "custom"
     : "week";
 
   const today = isoDate(new Date());
+  const yesterday = isoDate(new Date(Date.now() - 86_400_000));
   let fromDate: string;
   let toDate: string;
   if (range === "today") {
     fromDate = today; toDate = today;
+  } else if (range === "yesterday") {
+    fromDate = yesterday; toDate = yesterday;
   } else if (range === "week") {
     fromDate = isoDate(new Date(Date.now() - 6 * 86_400_000));
     toDate = today;

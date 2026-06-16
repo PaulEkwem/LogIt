@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Search } from "lucide-react";
 
 export type Tab = "acquisition" | "retention";
-export type Range = "today" | "week" | "month" | "custom";
+export type Range = "today" | "yesterday" | "week" | "month" | "custom";
 
 export function ReportsControls({
   tab, range, defaultFrom, defaultTo,
@@ -39,11 +39,12 @@ export function ReportsControls({
       </div>
 
       {/* Range picker */}
-      <div className="grid grid-cols-4 rounded-xl p-1" style={{ background: "var(--color-bg)", border: "1.5px solid var(--color-line)" }}>
-        <RangeBtn label="Today"  active={range === "today"}  onClick={() => go(tab, "today")} />
-        <RangeBtn label="Week"   active={range === "week"}   onClick={() => go(tab, "week")} />
-        <RangeBtn label="Month"  active={range === "month"}  onClick={() => go(tab, "month")} />
-        <RangeBtn label="Custom" active={range === "custom"} onClick={() => go(tab, "custom", from, to)} />
+      <div className="grid grid-cols-5 rounded-xl p-1" style={{ background: "var(--color-bg)", border: "1.5px solid var(--color-line)" }}>
+        <RangeBtn label="Today"     active={range === "today"}     onClick={() => go(tab, "today")} />
+        <RangeBtn label="Yesterday" active={range === "yesterday"} onClick={() => go(tab, "yesterday")} />
+        <RangeBtn label="Week"      active={range === "week"}      onClick={() => go(tab, "week")} />
+        <RangeBtn label="Month"     active={range === "month"}     onClick={() => go(tab, "month")} />
+        <RangeBtn label="Custom"    active={range === "custom"}    onClick={() => go(tab, "custom", from, to)} />
       </div>
 
       {range === "custom" && (
@@ -84,7 +85,7 @@ function RangeBtn({ label, active, onClick }: { label: string; active: boolean; 
   return (
     <button
       onClick={onClick}
-      className="text-center py-1.5 rounded-lg font-extrabold text-[12px] transition-colors"
+      className="text-center py-1.5 px-1 rounded-lg font-extrabold text-[11px] transition-colors truncate"
       style={{
         background: active ? "var(--color-ink)" : "transparent",
         color: active ? "white" : "var(--color-body)",

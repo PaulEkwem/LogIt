@@ -1,20 +1,27 @@
-/**
- * Lightweight SVG bar chart. Renders one bar per data point with optional
- * signed support (bars can dip below a zero line for negative values).
- *
- * Server-renderable — no client state. Hover behaviour kept minimal via the
- * <title> child on each bar.
- */
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
 
 export type BarDatum = {
-  label: string;       // short label (e.g. "Mon" or "13 Jun")
+  label: string;
   value: number;
-  color?: string;      // optional per-bar colour override
+  color?: string;
+  /**
+   * When present, the bar at this position renders as a clickable
+   * "+ Request" tile that opens the corresponding report window.
+   */
+  cta?: {
+    reportType: "acquisition" | "retention";
+    slot: "single" | "midday" | "eod";
+    label?: string;     // e.g. "Request Retention 12pm"
+  };
 };
 
 export function BarChart({
   data,
-  height = 180,
+  height = 200,
   signed = false,
   formatValue,
   baseColor = "var(--color-brand-red)",
@@ -27,6 +34,9 @@ export function BarChart({
   baseColor?: string;
   emptyHint?: string;
 }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+
   if (data.length === 0) {
     return (
       <div className="rounded-2xl px-4 py-10 text-center" style={{ background: "white", border: "1.5px dashed var(--color-line)" }}>
@@ -36,63 +46,138 @@ export function BarChart({
   }
 
   const fmt = formatValue ?? ((n) => String(n));
-  const max = Math.max(0, ...data.map((d) => d.value));
-  const min = signed ? Math.min(0, ...data.map((d) => d.value)) : 0;
+  const dataCells = data.filter((d) => !d.cta);
+  const max = Math.max(0, ...dataCells.map((d) => d.value));
+  const min = signed ? Math.min(0, ...dataCells.map((d) => d.value)) : 0;
   const range = Math.max(1, max - min);
+  const zeroPct = (max / range) * 100;
 
-  // Geometry
-  const padTop = 18;
-  const padBottom = 26;
-  const innerH = height - padTop - padBottom;
-  const zeroY = padTop + (max / range) * innerH;
-
-  const barCount = data.length;
-  // Use a percent-based width so the chart fills its container responsively.
-  const cellWidthPct = 100 / barCount;
-  const barWidthPct = cellWidthPct * 0.6;
+  async function requestWindow(cta: NonNullable<BarDatum["cta"]>) {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/admin/window", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "open", report_type: cta.reportType, slot: cta.slot }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        router.refresh();
+      } else {
+        alert(data.error ?? "Couldn't open the window.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="rounded-2xl p-3" style={{ background: "white", border: "1.5px solid var(--color-line)" }}>
-      <svg viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" style={{ width: "100%", height, display: "block" }}>
-        {/* Zero line for signed charts */}
-        {signed && (
-          <line x1={0} y1={zeroY} x2={100} y2={zeroY} stroke="var(--color-line)" strokeWidth={0.2} />
-        )}
-
-        {/* Bars */}
-        {data.map((d, i) => {
-          const cellLeft = i * cellWidthPct;
-          const barLeft = cellLeft + (cellWidthPct - barWidthPct) / 2;
-          const valuePx = (Math.abs(d.value) / range) * innerH;
-          const isNeg = d.value < 0;
-          const barY = isNeg ? zeroY : zeroY - valuePx;
-          const barHeight = Math.max(valuePx, d.value === 0 ? 0 : 0.6);
-          const color = d.color ?? baseColor;
-          return (
-            <g key={`${d.label}-${i}`}>
-              <rect
-                x={barLeft}
-                y={barY}
-                width={barWidthPct}
-                height={barHeight}
-                rx={0.6}
-                fill={color}
-                opacity={d.value === 0 ? 0.18 : 1}
-              >
-                <title>{`${d.label}: ${fmt(d.value)}`}</title>
-              </rect>
-            </g>
-          );
-        })}
-      </svg>
-
-      {/* X-axis labels — HTML for crisper text than SVG <text> */}
-      <div className="grid mt-1.5" style={{ gridTemplateColumns: `repeat(${barCount}, 1fr)` }}>
+      <div className="flex items-stretch gap-1.5" style={{ height }}>
         {data.map((d, i) => (
-          <div key={`${d.label}-x-${i}`} className="text-center font-extrabold text-[9px] truncate" style={{ color: "var(--color-muted)", letterSpacing: "0.04em" }}>
+          <div key={`${d.label}-${i}`} className="flex-1 flex flex-col">
+            {d.cta ? (
+              <button
+                onClick={() => requestWindow(d.cta!)}
+                disabled={busy}
+                className="flex-1 rounded-lg flex flex-col items-center justify-center gap-1 transition-all active:scale-[0.97] disabled:opacity-50"
+                style={{
+                  background: "rgba(206,17,38,0.06)",
+                  border: "1.5px dashed var(--color-brand-red)",
+                  color: "var(--color-brand-red)",
+                  minHeight: 80,
+                }}
+                aria-label={d.cta.label ?? "Request"}
+              >
+                <Plus className="w-6 h-6" strokeWidth={2.5} />
+                <span className="font-extrabold text-[10px] uppercase text-center px-1" style={{ letterSpacing: "0.08em", lineHeight: 1.2 }}>
+                  {d.cta.label ?? "Request"}
+                </span>
+              </button>
+            ) : (
+              <BarCell value={d.value} max={max} min={min} range={range} signed={signed} zeroPct={zeroPct} color={d.color ?? baseColor} title={`${d.label}: ${fmt(d.value)}`} />
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* X-axis labels */}
+      <div className="grid mt-2 gap-1.5" style={{ gridTemplateColumns: `repeat(${data.length}, 1fr)` }}>
+        {data.map((d, i) => (
+          <div key={`${d.label}-x-${i}`} className="text-center font-extrabold text-[10px] truncate" style={{ color: "var(--color-muted)", letterSpacing: "0.04em" }}>
             {d.label}
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function BarCell({
+  value, max, min, range, signed, zeroPct, color, title,
+}: {
+  value: number;
+  max: number;
+  min: number;
+  range: number;
+  signed: boolean;
+  zeroPct: number;
+  color: string;
+  title: string;
+}) {
+  void max; void min;
+  if (!signed) {
+    // Simple positive-only: bar grows from bottom
+    const pct = (value / range) * 100;
+    return (
+      <div className="flex-1 flex flex-col justify-end" title={title}>
+        <div
+          className="rounded-md w-full"
+          style={{
+            height: `${Math.max(value === 0 ? 0 : 2, pct)}%`,
+            background: color,
+            opacity: value === 0 ? 0.15 : 1,
+            minHeight: value === 0 ? 4 : undefined,
+          }}
+        />
+      </div>
+    );
+  }
+  // Signed: zero line splits column. Positive bar above, negative bar below.
+  const isPositive = value >= 0;
+  const positiveAreaPct = zeroPct;             // height available for negative bars (from zero line down)
+  const negativeAreaPct = 100 - zeroPct;       // height available for positive bars (from zero line up)
+  const barPct = (Math.abs(value) / range) * 100;
+  return (
+    <div className="flex-1 flex flex-col" title={title}>
+      {/* Positive area (above zero) */}
+      <div className="flex-grow flex flex-col justify-end" style={{ flexBasis: `${positiveAreaPct}%`, flexGrow: 0 }}>
+        {isPositive && (
+          <div
+            className="rounded-t-md w-full"
+            style={{
+              height: `${(barPct / negativeAreaPct) * 100}%`,
+              background: color,
+              opacity: value === 0 ? 0.15 : 1,
+              minHeight: value === 0 ? 0 : 2,
+            }}
+          />
+        )}
+      </div>
+      {/* Zero line */}
+      <div className="w-full" style={{ height: 1, background: "var(--color-line)" }} />
+      {/* Negative area (below zero) */}
+      <div className="flex-grow flex flex-col justify-start" style={{ flexBasis: `${negativeAreaPct}%`, flexGrow: 0 }}>
+        {!isPositive && (
+          <div
+            className="rounded-b-md w-full"
+            style={{
+              height: `${(barPct / positiveAreaPct) * 100}%`,
+              background: color,
+              minHeight: 2,
+            }}
+          />
+        )}
       </div>
     </div>
   );

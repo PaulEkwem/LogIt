@@ -4,16 +4,14 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
-  LayoutDashboard, Users2, FileBarChart2,
-  Megaphone, Settings, Shield, LogOut, Menu, X,
+  Send, Users2, Megaphone, Settings, Shield, LogOut, Menu, X,
 } from "lucide-react";
 
 const NAV = [
-  { href: "/admin",            label: "Dashboard",       icon: LayoutDashboard },
-  { href: "/admin/teams",      label: "Teams & AMs",     icon: Users2 },
-  { href: "/admin/reports",    label: "Reports",         icon: FileBarChart2 },
-  { href: "/admin/campaigns",  label: "Campaigns",       icon: Megaphone },
-  { href: "/admin/settings",   label: "Settings",        icon: Settings },
+  { href: "/admin/request",    label: "Request a report", icon: Send },
+  { href: "/admin/teams",      label: "Teams & AMs",      icon: Users2 },
+  { href: "/admin/campaigns",  label: "Campaigns",        icon: Megaphone },
+  { href: "/admin/settings",   label: "Settings",         icon: Settings },
 ];
 
 // Paths that should render WITHOUT the shell (full-screen flows).
@@ -33,9 +31,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     router.refresh();
   }
 
-  const activeIdx = NAV.findIndex((n) =>
-    n.href === "/admin" ? pathname === "/admin" : pathname.startsWith(n.href),
-  );
+  const activeIdx = NAV.findIndex((n) => pathname.startsWith(n.href));
   const activeLabel = NAV[activeIdx]?.label ?? "";
 
   return (
@@ -119,7 +115,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <nav className="flex-1 px-3 py-4 flex flex-col gap-0.5 overflow-y-auto">
               {NAV.map((item) => {
                 const Icon = item.icon;
-                const active = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
+                const active = pathname.startsWith(item.href);
                 return (
                   <Link
                     key={item.href}

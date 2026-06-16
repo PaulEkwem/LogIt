@@ -11,7 +11,7 @@ import {
 const NAV = [
   { href: "/admin",            label: "Dashboard",       icon: LayoutDashboard },
   { href: "/admin/teams",      label: "Teams & AMs",     icon: Users2 },
-  { href: "/admin/reports",    label: "Reports history", icon: FileBarChart2 },
+  { href: "/admin/reports",    label: "Reports",         icon: FileBarChart2 },
   { href: "/admin/campaigns",  label: "Campaigns",       icon: Megaphone },
   { href: "/admin/settings",   label: "Settings",        icon: Settings },
 ];

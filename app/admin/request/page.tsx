@@ -40,11 +40,11 @@ export default async function AdminRequestPage({ searchParams }: RouteProps) {
   const params = await searchParams;
   const tab: Tab = params.tab === "retention" ? "retention" : "acquisition";
   const slot: Slot = params.slot === "eod" ? "eod" : "midday";
-  const range: Range = params.range === "today" ? "today"
-    : params.range === "yesterday" ? "yesterday"
+  const range: Range = params.range === "yesterday" ? "yesterday"
+    : params.range === "week" ? "week"
     : params.range === "month" ? "month"
     : params.range === "custom" ? "custom"
-    : "week";
+    : "today"; // default — Blessing's day starts here
 
   const today = isoDate(new Date());
   const yesterday = isoDate(new Date(Date.now() - 86_400_000));

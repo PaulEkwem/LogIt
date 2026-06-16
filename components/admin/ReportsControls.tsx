@@ -27,7 +27,7 @@ export function ReportsControls({
       params.set("from", customFrom);
       params.set("to", customTo);
     }
-    router.push(`/admin/reports?${params.toString()}`);
+    router.push(`/admin/request?${params.toString()}`);
   }
 
   return (

@@ -4,7 +4,7 @@ import { BarChart, type BarDatum } from "@/components/admin/BarChart";
 import { WindowTile, type WindowState } from "@/components/admin/WindowTile";
 import { AcquisitionLive, type AmEntry } from "@/components/admin/AcquisitionLive";
 import { RetentionLive, type TeamEntry } from "@/components/admin/RetentionLive";
-import { DashboardTabs, type Slot } from "@/components/admin/DashboardTabs";
+import { type Slot } from "@/components/admin/DashboardTabs";
 import { Download } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -71,30 +71,35 @@ export default async function AdminRequestPage({ searchParams }: RouteProps) {
     divisionId = (data as { division_id?: string } | null)?.division_id ?? "";
   }
 
-  const { data: division } = await supabase
-    .from("divisions").select("name").eq("id", divisionId).maybeSingle();
+  // Parallel-fetch everything that depends only on divisionId.
+  const [
+    { data: division },
+    { data: pcs },
+    { data: todaysWindows },
+  ] = await Promise.all([
+    supabase.from("divisions").select("name").eq("id", divisionId).maybeSingle(),
+    supabase.from("pcs").select("id, name, pc_code").eq("division_id", divisionId).is("archived_at", null).order("name"),
+    supabase.from("report_windows")
+      .select("report_type, slot, opened_at, closed_at, closed_reason")
+      .eq("division_id", divisionId).eq("report_date", today),
+  ]);
   const divisionName = division?.name ?? "";
-
-  const { data: pcs } = await supabase
-    .from("pcs").select("id, name, pc_code").eq("division_id", divisionId).is("archived_at", null).order("name");
   const pcIds = (pcs ?? []).map((p) => p.id);
   const totalPcs = pcIds.length;
+  const PLACEHOLDER_UUID = "00000000-0000-0000-0000-000000000000";
 
   const { data: ams } = await supabase
-    .from("account_managers").select("id, full_name, am_code, initials, color, pc_id").is("archived_at", null)
-    .in("pc_id", pcIds.length ? pcIds : ["00000000-0000-0000-0000-000000000000"]);
+    .from("account_managers")
+    .select("id, full_name, am_code, initials, color, pc_id")
+    .is("archived_at", null)
+    .in("pc_id", pcIds.length ? pcIds : [PLACEHOLDER_UUID]);
   const amIds = (ams ?? []).map((a) => a.id);
   const totalAms = amIds.length;
-
-  // Today's window status (always needed for the "+ Request" CTA decision)
-  const { data: todaysWindows } = await supabase.from("report_windows")
-    .select("report_type, slot, opened_at, closed_at, closed_reason")
-    .eq("division_id", divisionId).eq("report_date", today);
 
   const findWindow = (type: "acquisition" | "retention", s: string) =>
     (todaysWindows ?? []).find((w) => w.report_type === type && w.slot === s);
 
-  // Tab-specific data for the range
+  // Now the range data (depends on amIds for acquisition, pcIds for retention).
   let acquisition: { am_id: string; report_date: string; acquired: number; total_opened: number; opened_same_day?: number; submitted_at?: string }[] = [];
   let retention: { pc_id: string; slot: string; report_date: string; retention_naira_m: number; pledges_naira_m?: number; inflow_naira_m?: number; outflow_naira_m?: number; filled_by_am_id?: string; submitted_at?: string }[] = [];
 

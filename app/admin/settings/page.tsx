@@ -1,30 +1,32 @@
-import { Settings } from "lucide-react";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { AdminSettings } from "@/components/admin/AdminSettings";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const meta = user!.user_metadata as { first_name?: string; last_name?: string };
+  const full_name = [meta.first_name, meta.last_name].filter(Boolean).join(" ") || "Admin";
+  const email = user!.email ?? "";
+
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <div className="font-extrabold text-[11px] uppercase" style={{ color: "var(--color-muted)", letterSpacing: "0.18em" }}>
-          Account
-        </div>
-        <h1 className="font-black text-[28px] mt-1.5" style={{ color: "var(--color-ink)", letterSpacing: "-0.03em" }}>
-          Settings
-        </h1>
-      </div>
+      <PageHead title="Settings" sub="Your admin account" />
+      <AdminSettings full_name={full_name} email={email} />
+    </div>
+  );
+}
 
-      <div className="rounded-2xl p-8 text-center" style={{ background: "white", border: "1.5px dashed var(--color-line)" }}>
-        <div className="w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center" style={{ background: "#F1F5F9", color: "var(--color-muted)" }}>
-          <Settings className="w-6 h-6" />
-        </div>
-        <div className="font-black text-[15px]" style={{ color: "var(--color-ink)", letterSpacing: "-0.015em" }}>
-          Coming soon
-        </div>
-        <div className="font-bold text-[12px] mt-1 max-w-[400px] mx-auto" style={{ color: "var(--color-body)", lineHeight: 1.5 }}>
-          Change your password and manage your admin profile. Sign out is in the sidebar for now.
-        </div>
+function PageHead({ title, sub }: { title: string; sub: string }) {
+  return (
+    <div>
+      <div className="font-extrabold text-[11px] uppercase" style={{ color: "var(--color-muted)", letterSpacing: "0.18em" }}>
+        {sub}
       </div>
+      <h1 className="font-black text-[28px] mt-1.5" style={{ color: "var(--color-ink)", letterSpacing: "-0.03em" }}>
+        {title}
+      </h1>
     </div>
   );
 }

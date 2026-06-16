@@ -6,10 +6,12 @@ export const dynamic = "force-dynamic";
 
 type RouteProps = {
   params: Promise<{ slot: string }>;
+  searchParams: Promise<{ date?: string }>;
 };
 
-export default async function RetentionExportPage({ params }: RouteProps) {
+export default async function RetentionExportPage({ params, searchParams }: RouteProps) {
   const { slot: slotParam } = await params;
+  const { date: dateParam } = await searchParams;
   const slot = slotParam === "eod" ? "eod" : "midday";
 
   const supabase = await createSupabaseServerClient();
@@ -18,7 +20,8 @@ export default async function RetentionExportPage({ params }: RouteProps) {
   const meta = user.app_metadata as { role?: string; division_id?: string };
   if (meta.role !== "admin" || !meta.division_id) redirect("/home");
 
-  const today = new Date().toISOString().slice(0, 10);
+  const isValidDate = (s: string | undefined): s is string => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
+  const today = isValidDate(dateParam) ? dateParam! : new Date().toISOString().slice(0, 10);
 
   const { data: division } = await supabase
     .from("divisions").select("name").eq("id", meta.division_id).maybeSingle();

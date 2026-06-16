@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { AdminShell } from "@/components/AdminShell";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createSupabaseServerClient();
@@ -7,5 +8,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!user) redirect("/");
   const role = (user.app_metadata as { role?: string }).role;
   if (role !== "admin") redirect("/home");
-  return <>{children}</>;
+  return <AdminShell>{children}</AdminShell>;
 }

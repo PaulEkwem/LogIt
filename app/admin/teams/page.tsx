@@ -1,10 +1,18 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { TeamManagement, type TeamItem } from "@/components/TeamManagement";
-import { AmActionRow, type AdminAmRow } from "@/components/admin/AmActionRow";
+import { AmsList, type FlatAm, type TeamPick } from "@/components/admin/AmsList";
+import { TeamsAmsToggle } from "@/components/admin/TeamsAmsToggle";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminTeamsPage() {
+type RouteProps = {
+  searchParams: Promise<{ view?: string }>;
+};
+
+export default async function AdminTeamsPage({ searchParams }: RouteProps) {
+  const { view: viewParam } = await searchParams;
+  const view: "teams" | "ams" = viewParam === "ams" ? "ams" : "teams";
+
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   const meta = user!.app_metadata as { pc_id?: string; division_id?: string };
@@ -20,22 +28,17 @@ export default async function AdminTeamsPage() {
 
   const { data: ams } = await supabase
     .from("account_managers")
-    .select("id, full_name, am_code, initials, color, daily_goal, team_label, pc_id, archived_at")
+    .select("id, full_name, am_code, initials, color, pc_id, archived_at")
     .order("am_code");
 
-  const today = new Date().toISOString().slice(0, 10);
-  const { data: todaysReports } = await supabase
-    .from("daily_reports").select("am_id, total_opened").eq("report_date", today);
-  const reportByAm = new Map((todaysReports ?? []).map((r) => [r.am_id, r]));
+  const pcById = new Map((pcsAll ?? []).map((p) => [p.id, p]));
 
-  const activePcs = (pcsAll ?? []).filter((p) => !p.archived_at);
   const activeAms = (ams ?? []).filter((a) => !a.archived_at);
-
-  // Team count uses active AMs (not archived ones)
   const amCountByPc = new Map<string, number>();
   for (const am of activeAms) {
     amCountByPc.set(am.pc_id, (amCountByPc.get(am.pc_id) ?? 0) + 1);
   }
+
   const teams: TeamItem[] = (pcsAll ?? []).map((p) => ({
     pc_id: p.id,
     pc_name: p.name,
@@ -44,67 +47,36 @@ export default async function AdminTeamsPage() {
     archived: !!p.archived_at,
   }));
 
-  const totalActive = activeAms.length;
+  const flatAms: FlatAm[] = (ams ?? []).map((am) => {
+    const pc = pcById.get(am.pc_id);
+    return {
+      id: am.id,
+      full_name: am.full_name,
+      am_code: am.am_code,
+      initials: am.initials,
+      color: am.color,
+      pc_id: am.pc_id,
+      pc_name: pc?.name ?? "—",
+      pc_code: pc?.pc_code ?? "—",
+      archived: !!am.archived_at,
+    };
+  });
+
+  const teamPicks: TeamPick[] = (pcsAll ?? [])
+    .filter((p) => !p.archived_at)
+    .map((p) => ({ id: p.id, name: p.name, pc_code: p.pc_code }));
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHead title="Teams & AMs" sub="Add, rename, archive, reset PINs" />
+    <div className="flex flex-col gap-5">
+      <PageHead title="Teams & AMs" sub="Manage everything in one place" />
 
-      <section>
+      <TeamsAmsToggle active={view} />
+
+      {view === "teams" ? (
         <TeamManagement teams={teams} />
-      </section>
-
-      <section>
-        <SectionTitle>Account Managers · {totalActive}</SectionTitle>
-        <div className="flex flex-col gap-3">
-          {activePcs.map((pc) => {
-            const teamRows: AdminAmRow[] = activeAms
-              .filter((am) => am.pc_id === pc.id)
-              .map((am) => {
-                const r = reportByAm.get(am.id);
-                return {
-                  id: am.id,
-                  full_name: am.full_name,
-                  am_code: am.am_code,
-                  initials: am.initials,
-                  color: am.color,
-                  daily_goal: am.daily_goal,
-                  team_label: am.team_label ?? null,
-                  submitted: !!r,
-                  opened: r?.total_opened ?? null,
-                };
-              });
-            if (teamRows.length === 0) {
-              return (
-                <div key={pc.id}>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="font-black text-[13px]" style={{ color: "var(--color-ink)" }}>{pc.name}</span>
-                    <span className="font-extrabold text-[10px] rounded-md px-1.5 py-0.5" style={{ background: "#F1F5F9", color: "var(--color-muted)", letterSpacing: "0.06em" }}>PC {pc.pc_code}</span>
-                  </div>
-                  <div className="rounded-2xl px-3 py-3" style={{ background: "white", border: "1.5px dashed var(--color-line)" }}>
-                    <div className="text-[12px] font-bold" style={{ color: "var(--color-muted)" }}>
-                      No AMs yet. Use <b>Add AM</b> on the team row above to add one.
-                    </div>
-                  </div>
-                </div>
-              );
-            }
-            return (
-              <div key={pc.id}>
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="font-black text-[13px]" style={{ color: "var(--color-ink)" }}>{pc.name}</span>
-                  <span className="font-extrabold text-[10px] rounded-md px-1.5 py-0.5" style={{ background: "#F1F5F9", color: "var(--color-muted)", letterSpacing: "0.06em" }}>PC {pc.pc_code}</span>
-                </div>
-                <div className="rounded-2xl px-3" style={{ background: "white", border: "1.5px solid var(--color-line)" }}>
-                  {teamRows.map((row, i) => (
-                    <AmActionRow key={row.id} row={row} first={i === 0} />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+      ) : (
+        <AmsList ams={flatAms} teams={teamPicks} />
+      )}
     </div>
   );
 }
@@ -118,14 +90,6 @@ function PageHead({ title, sub }: { title: string; sub: string }) {
       <h1 className="font-black text-[28px] mt-1.5" style={{ color: "var(--color-ink)", letterSpacing: "-0.03em" }}>
         {title}
       </h1>
-    </div>
-  );
-}
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="font-extrabold text-[11px] uppercase mb-2" style={{ color: "var(--color-muted)", letterSpacing: "0.16em" }}>
-      {children}
     </div>
   );
 }

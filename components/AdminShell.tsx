@@ -4,13 +4,12 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
-  LayoutDashboard, PlayCircle, Users2, FileBarChart2,
+  LayoutDashboard, Users2, FileBarChart2,
   Megaphone, Settings, Shield, LogOut, Menu, X,
 } from "lucide-react";
 
 const NAV = [
   { href: "/admin",            label: "Dashboard",       icon: LayoutDashboard },
-  { href: "/admin/windows",    label: "Live reports",    icon: PlayCircle },
   { href: "/admin/teams",      label: "Teams & AMs",     icon: Users2 },
   { href: "/admin/reports",    label: "Reports history", icon: FileBarChart2 },
   { href: "/admin/campaigns",  label: "Campaigns",       icon: Megaphone },

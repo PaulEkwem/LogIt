@@ -51,7 +51,7 @@ const PCS = [
   { code: "364", name: "Bode Thomas" },
   { code: "208", name: "Ibafon" },
   { code: "304", name: "Ikosi" },
-  { code: "207", name: "Ikotun 2" },
+  { code: "207", name: "Ikotun" },
   { code: "377", name: "Ilupeju" },
   { code: "206", name: "Ipaja" },
   { code: "115", name: "Lasu" },
@@ -63,9 +63,14 @@ const PCS = [
   { code: "375", name: "Yaba" },
 ];
 
+// PC renames — apply at seed start so existing rows pick up the new name.
+const PC_RENAMES = [
+  { code: "207", name: "Ikotun" }, // was "Ikotun 2"
+];
+
 // Codes from previous seeds that are no longer in use. We delete the auth
 // users so they can't sign in with the old credentials.
-const RETIRED_CODES = ["3122", "3125"];
+const RETIRED_CODES = ["3122", "3125", "3414"];
 
 // ============================================================================
 // AMs — fill from spreadsheet. Each entry:
@@ -132,6 +137,7 @@ const AMS = [
 
   // PC 206 — Ipaja
   { code: "2061", first_name: "Paul",      last_name: "Ekwem",   pc_code: "206" },
+  { code: "2062", first_name: "Rachael",   last_name: "",        pc_code: "206" },
 
   // PC 207 — Ikotun 2
   { code: "2071", first_name: "Ifunanya",  last_name: "",        pc_code: "207" },
@@ -147,10 +153,10 @@ const AMS = [
   { code: "3163", first_name: "Samuel",    last_name: "",        pc_code: "316" },
   { code: "3164", first_name: "Chinenye",  last_name: "",        pc_code: "316" },
 
-  // PC 341 — Okota
+  // PC 341 — Okota  (Millicent's am_code is 3114 per HQ assignment, unusual but intentional)
   { code: "3411", first_name: "Olawale",   last_name: "",        pc_code: "341" },
   { code: "3412", first_name: "Sunkami",   last_name: "",        pc_code: "341" },
-  { code: "3414", first_name: "Millicent", last_name: "",        pc_code: "341" },
+  { code: "3114", first_name: "Millicent", last_name: "",        pc_code: "341" },
 
   // PC 385 — Orile
   { code: "3851", first_name: "Abiodun",   last_name: "Aremu",   pc_code: "385" },
@@ -258,6 +264,19 @@ async function main() {
     division = ins.data;
   }
   console.log("  ", division.id, division.name);
+
+  // Apply explicit PC renames first (e.g. team names that changed).
+  if (PC_RENAMES.length > 0) {
+    console.log("→ PC renames");
+    for (const r of PC_RENAMES) {
+      const { data: existing } = await sb.from("pcs").select("id, name").eq("pc_code", r.code).maybeSingle();
+      if (existing && existing.name !== r.name) {
+        const upd = await sb.from("pcs").update({ name: r.name }).eq("id", existing.id);
+        if (upd.error) console.error(`   ${r.code}: rename failed — ${upd.error.message}`);
+        else console.log(`   ${r.code}: "${existing.name}" → "${r.name}"`);
+      }
+    }
+  }
 
   console.log("→ PCs");
   const pcByCode = {};

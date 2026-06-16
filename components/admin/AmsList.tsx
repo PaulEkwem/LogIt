@@ -49,27 +49,26 @@ export function AmsList({ ams, teams }: { ams: FlatAm[]; teams: TeamPick[] }) {
         <div className="font-extrabold text-[11px] uppercase" style={{ color: "var(--color-muted)", letterSpacing: "0.16em" }}>
           Account Managers · {ams.filter((a) => !a.archived).length}
         </div>
-        <div className="flex items-center gap-3">
-          {archivedCount > 0 && (
-            <button
-              onClick={() => setShowArchived((v) => !v)}
-              className="font-extrabold text-[10px] uppercase"
-              style={{ color: "var(--color-muted)", letterSpacing: "0.1em" }}
-            >
-              {showArchived ? "Hide archived" : `Show archived (${archivedCount})`}
-            </button>
-          )}
-          {!adding && (
-            <button
-              onClick={() => setAdding(true)}
-              className="rounded-lg px-3 py-2 font-extrabold text-[12px] inline-flex items-center gap-1.5 text-white"
-              style={{ background: "var(--color-brand-red)" }}
-            >
-              <Plus className="w-3.5 h-3.5" /> Add AM
-            </button>
-          )}
-        </div>
+        {archivedCount > 0 && (
+          <button
+            onClick={() => setShowArchived((v) => !v)}
+            className="font-extrabold text-[10px] uppercase"
+            style={{ color: "var(--color-muted)", letterSpacing: "0.1em" }}
+          >
+            {showArchived ? "Hide archived" : `Show archived (${archivedCount})`}
+          </button>
+        )}
       </div>
+
+      {!adding && (
+        <button
+          onClick={() => setAdding(true)}
+          className="w-full rounded-2xl py-3.5 mb-3 font-black text-[14px] flex items-center justify-center gap-2 text-white transition-transform active:scale-[0.99]"
+          style={{ background: "linear-gradient(135deg, var(--color-brand-red), var(--color-brand-red-d))", letterSpacing: "-0.01em" }}
+        >
+          <Plus className="w-[18px] h-[18px]" strokeWidth={2.5} /> Add new AM
+        </button>
+      )}
 
       {adding && (
         <NewAmForm

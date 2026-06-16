@@ -54,10 +54,10 @@ export function TeamManagement({ teams }: { teams: TeamItem[] }) {
       {!creating ? (
         <button
           onClick={() => setCreating(true)}
-          className="w-full rounded-xl py-3 font-extrabold text-[13px] flex items-center justify-center gap-2"
-          style={{ background: "white", border: "1.5px dashed var(--color-line)", color: "var(--color-ink)" }}
+          className="w-full rounded-2xl py-3.5 font-black text-[14px] flex items-center justify-center gap-2 text-white transition-transform active:scale-[0.99]"
+          style={{ background: "linear-gradient(135deg, var(--color-brand-red), var(--color-brand-red-d))", letterSpacing: "-0.01em" }}
         >
-          <Plus className="w-4 h-4" /> Add new team
+          <Plus className="w-[18px] h-[18px]" strokeWidth={2.5} /> Add new team
         </button>
       ) : (
         <NewTeamForm

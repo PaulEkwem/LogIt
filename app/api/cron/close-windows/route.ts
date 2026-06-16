@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { lagosDate, endOfLagosDayUtc } from "@/lib/time";
 
 /**
  * Cron — closes every still-open report window at end-of-day.
@@ -18,9 +19,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Cron fires at 22:59 UTC = 23:59 Lagos, so today (UTC) == today (Lagos).
-  const today = new Date().toISOString().slice(0, 10);
-  const closedAt = `${today}T22:59:00.000Z`; // 23:59 Lagos
+  const today = lagosDate();
+  const closedAt = endOfLagosDayUtc(today);
   const ranAt = new Date().toISOString();
 
   const admin = createSupabaseAdminClient();

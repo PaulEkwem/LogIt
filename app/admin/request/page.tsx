@@ -4,7 +4,9 @@ import { BarChart, type BarDatum } from "@/components/admin/BarChart";
 import { WindowTile, type WindowState } from "@/components/admin/WindowTile";
 import { AcquisitionLive, type AmEntry } from "@/components/admin/AcquisitionLive";
 import { RetentionLive, type TeamEntry } from "@/components/admin/RetentionLive";
+import { EmptyTodayCta } from "@/components/admin/EmptyTodayCta";
 import { type Slot } from "@/components/admin/DashboardTabs";
+import { lagosDate } from "@/lib/time";
 import { Download } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +15,7 @@ const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct
 const DOW_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const DOW = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
-function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
+function isoDate(d: Date): string { return lagosDate(d); }
 function isValidDate(s: string | undefined): s is string { return !!s && /^\d{4}-\d{2}-\d{2}$/.test(s); }
 function fmtFull(iso: string): string {
   const d = new Date(iso + "T00:00:00");
@@ -222,19 +224,25 @@ export default async function AdminRequestPage({ searchParams }: RouteProps) {
         filed: entries.filter((e) => e.filed).length,
         total: totalAms,
       };
-      const live = !!state.opened_at && !state.closed_at;
+      const opened = !!state.opened_at; // live OR closed both count as "has been requested"
       liveSection = (
         <section className="flex flex-col gap-4">
-          <SectionTitle>Live for today</SectionTitle>
-          <WindowTile
-            label="Customer acquisition"
-            sublabel="One filing per AM, throughout the day"
-            reportType="acquisition"
-            slot="single"
-            state={state}
-            downloadHref={null}
-          />
-          {live && <AcquisitionLive entries={entries} />}
+          <SectionTitle>{opened ? "Today's report" : "No live report yet"}</SectionTitle>
+          {opened ? (
+            <>
+              <WindowTile
+                label="Customer acquisition"
+                sublabel="One filing per AM, throughout the day"
+                reportType="acquisition"
+                slot="single"
+                state={state}
+                downloadHref={null}
+              />
+              <AcquisitionLive entries={entries} />
+            </>
+          ) : (
+            <EmptyTodayCta reportType="acquisition" slot="single" label="Request acquisition" />
+          )}
         </section>
       );
     } else {
@@ -279,20 +287,26 @@ export default async function AdminRequestPage({ searchParams }: RouteProps) {
         filed: entries.filter((e) => e.filed).length,
         total: totalPcs,
       };
-      const live = !!state.opened_at && !state.closed_at;
+      const opened = !!state.opened_at;
       const slotLabel = slot === "eod" ? "5pm" : "12pm";
       liveSection = (
         <section className="flex flex-col gap-4">
-          <SectionTitle>Live for today</SectionTitle>
-          <WindowTile
-            label={`Retention · ${slotLabel}`}
-            sublabel={slot === "eod" ? "End of day snapshot — one per team" : "Midday snapshot — one per team"}
-            reportType="retention"
-            slot={slot}
-            state={state}
-            downloadHref={`/admin/retention/export/${slot}`}
-          />
-          {live && <RetentionLive entries={entries} />}
+          <SectionTitle>{opened ? `Today's ${slotLabel} report` : "No live report yet"}</SectionTitle>
+          {opened ? (
+            <>
+              <WindowTile
+                label={`Retention · ${slotLabel}`}
+                sublabel={slot === "eod" ? "End of day snapshot — one per team" : "Midday snapshot — one per team"}
+                reportType="retention"
+                slot={slot}
+                state={state}
+                downloadHref={`/admin/retention/export/${slot}`}
+              />
+              <RetentionLive entries={entries} />
+            </>
+          ) : (
+            <EmptyTodayCta reportType="retention" slot={slot} label={`Request ${slotLabel} retention`} />
+          )}
         </section>
       );
     }

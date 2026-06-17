@@ -187,12 +187,14 @@ async function upsertAuthUser({ email, password, app_metadata, user_metadata }) 
   const { data: existing } = await sb.auth.admin.listUsers({ page: 1, perPage: 1000 });
   const found = existing?.users?.find((u) => u.email === email);
   if (found) {
-    // Preserve onboarding_completed if the user has already finished onboarding —
-    // re-running the seed shouldn't kick a real user back through the flow.
+    // Preserve onboarding_completed AND any password the user has already set.
+    // Re-running the seed shouldn't kick a real user back through onboarding OR
+    // wipe a PIN/password they picked during onboarding.
     const prevOnboarded = (found.app_metadata && found.app_metadata.onboarding_completed) === true;
     const merged = { ...app_metadata };
     if (prevOnboarded) merged.onboarding_completed = true;
-    await sb.auth.admin.updateUserById(found.id, { password, app_metadata: merged, user_metadata });
+    // No `password` field here — we leave whatever the user has set in place.
+    await sb.auth.admin.updateUserById(found.id, { app_metadata: merged, user_metadata });
     return { id: found.id, preservedOnboarding: prevOnboarded };
   }
   const { data, error } = await sb.auth.admin.createUser({

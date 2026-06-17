@@ -69,27 +69,27 @@ export default async function HomePage() {
   const retentionMiddayOpen = !!findOpen("retention", "midday");
   const retentionEodOpen = !!findOpen("retention", "eod");
 
-  // Identify which retention slot the AM should land on (prefer EOD if both happen to be open)
-  const activeRetentionSlot: "midday" | "eod" | null =
-    retentionEodOpen ? "eod" : retentionMiddayOpen ? "midday" : null;
-
   const middayRow = (retentionToday ?? []).find((r) => r.slot === "midday");
   const eodRow    = (retentionToday ?? []).find((r) => r.slot === "eod");
 
-  let retentionStatus: { filled_by_name: string; submitted_at: string; retention_m: number } | null = null;
-  if (activeRetentionSlot) {
-    const row = activeRetentionSlot === "eod" ? eodRow : middayRow;
-    if (row) {
-      const { data: filler } = await supabase
-        .from("account_managers").select("full_name")
-        .eq("id", row.filled_by_am_id).maybeSingle();
-      retentionStatus = {
-        filled_by_name: filler?.full_name ?? "a teammate",
-        submitted_at: row.submitted_at,
-        retention_m: Number(row.retention_naira_m),
-      };
-    }
+  // Compute fill status per slot (not just the "active" one). Each open slot
+  // shows its own banner on the AM home — 12pm and 5pm are independent.
+  type SlotStatus = { filled_by_name: string; submitted_at: string; retention_m: number };
+  async function resolveStatus(row: typeof middayRow): Promise<SlotStatus | null> {
+    if (!row) return null;
+    const { data: filler } = await supabase
+      .from("account_managers").select("full_name")
+      .eq("id", row.filled_by_am_id).maybeSingle();
+    return {
+      filled_by_name: filler?.full_name ?? "a teammate",
+      submitted_at: row.submitted_at,
+      retention_m: Number(row.retention_naira_m),
+    };
   }
+  const [retentionMiddayStatus, retentionEodStatus] = await Promise.all([
+    retentionMiddayOpen ? resolveStatus(middayRow) : Promise.resolve(null),
+    retentionEodOpen    ? resolveStatus(eodRow)    : Promise.resolve(null),
+  ]);
 
   return (
     <>
@@ -101,11 +101,11 @@ export default async function HomePage() {
       yesterday={yesterdayReport as DailyReport | null}
       divisionId={divisionId}
       amId={meta.am_id}
-      retentionStatus={retentionStatus}
       acquisitionOpen={acquisitionOpen}
       retentionMiddayOpen={retentionMiddayOpen}
       retentionEodOpen={retentionEodOpen}
-      activeRetentionSlot={activeRetentionSlot}
+      retentionMiddayStatus={retentionMiddayStatus}
+      retentionEodStatus={retentionEodStatus}
       yesterdaySnapshot={yesterdaySnapshot}
     />
     </>

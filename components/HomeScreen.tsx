@@ -22,10 +22,12 @@ type ReportBanner = {
   submittedSummary?: string;
 };
 
+type SlotStatus = { filled_by_name: string; submitted_at: string; retention_m: number };
+
 export function HomeScreen({
   amName, goal, today, yesterday, divisionId, amId,
-  retentionStatus,
-  acquisitionOpen, retentionMiddayOpen, retentionEodOpen, activeRetentionSlot,
+  acquisitionOpen, retentionMiddayOpen, retentionEodOpen,
+  retentionMiddayStatus, retentionEodStatus,
   yesterdaySnapshot,
 }: {
   amName: string;
@@ -34,11 +36,11 @@ export function HomeScreen({
   yesterday: DailyReport | null;
   divisionId: string;
   amId: string;
-  retentionStatus: { filled_by_name: string; submitted_at: string; retention_m: number } | null;
   acquisitionOpen: boolean;
   retentionMiddayOpen: boolean;
   retentionEodOpen: boolean;
-  activeRetentionSlot: "midday" | "eod" | null;
+  retentionMiddayStatus: SlotStatus | null;
+  retentionEodStatus: SlotStatus | null;
   yesterdaySnapshot: { meOpened: number; teamFiled: number; teamTotal: number; teamOpened: number } | null;
 }) {
   void amName; void amId; void goal;
@@ -52,11 +54,13 @@ export function HomeScreen({
     ? `${today.total_opened} opened · ${new Date(today.submitted_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
     : undefined;
 
-  const retentionSummary = retentionStatus
-    ? `${retentionStatus.filled_by_name} · ${new Date(retentionStatus.submitted_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-    : undefined;
+  function slotSummary(s: SlotStatus | null): string | undefined {
+    if (!s) return undefined;
+    return `${s.filled_by_name} · ${new Date(s.submitted_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  }
 
-  // Build one banner per live window
+  // Build one banner per LIVE window. Retention 12pm and 5pm are independent —
+  // each gets its own banner if open.
   const reportBanners: ReportBanner[] = [];
   if (acquisitionOpen) {
     reportBanners.push({
@@ -69,21 +73,27 @@ export function HomeScreen({
       submittedSummary: acquisitionSummary,
     });
   }
-  if (activeRetentionSlot) {
-    const isEod = activeRetentionSlot === "eod";
+  if (retentionMiddayOpen) {
     reportBanners.push({
-      key: `ret-${activeRetentionSlot}`,
-      href: "/retention",
-      title: `Retention · ${isEod ? "5pm" : "12pm"} slot`,
+      key: "ret-midday",
+      href: "/retention?slot=midday",
+      title: "Retention · 12pm slot",
       subtitle: "Pledges, inflow, outflow — one per team",
       icon: <ShieldCheck className="w-[18px] h-[18px]" style={{ color: "var(--color-brand-gold)" }} />,
-      submitted: !!retentionStatus,
-      submittedSummary: retentionSummary,
+      submitted: !!retentionMiddayStatus,
+      submittedSummary: slotSummary(retentionMiddayStatus),
     });
   }
-  // If both retention slots open simultaneously (rare), surface the EOD slot only — server picks EOD as the active one.
-  if (retentionMiddayOpen && retentionEodOpen) {
-    void retentionMiddayOpen; // intentionally ignored — eod wins
+  if (retentionEodOpen) {
+    reportBanners.push({
+      key: "ret-eod",
+      href: "/retention?slot=eod",
+      title: "Retention · 5pm slot",
+      subtitle: "Pledges, inflow, outflow — one per team",
+      icon: <ShieldCheck className="w-[18px] h-[18px]" style={{ color: "var(--color-brand-gold)" }} />,
+      submitted: !!retentionEodStatus,
+      submittedSummary: slotSummary(retentionEodStatus),
+    });
   }
 
   const allReportsDone = reportBanners.length > 0 && reportBanners.every((b) => b.submitted);
@@ -217,7 +227,7 @@ export function HomeScreen({
       </div>
 
       {/* Yesterday context (only when no reports submitted yet) */}
-      {!submitted && !retentionStatus && yesterday && (
+      {!submitted && !retentionMiddayStatus && !retentionEodStatus && yesterday && (
         <div className="mx-2 mt-8 pt-5" style={{ borderTop: "1px solid var(--color-line)" }}>
           <div className="font-extrabold text-[11px] uppercase mb-2" style={{ color: "var(--color-muted)", letterSpacing: "0.16em" }}>Yesterday</div>
           <YesterdayLine r={yesterday} goal={goal} />

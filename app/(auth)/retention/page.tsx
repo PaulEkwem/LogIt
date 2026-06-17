@@ -5,7 +5,15 @@ import { lagosDate } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
-export default async function RetentionPage() {
+type RouteProps = {
+  searchParams: Promise<{ slot?: string }>;
+};
+
+export default async function RetentionPage({ searchParams }: RouteProps) {
+  const { slot: slotParam } = await searchParams;
+  const requestedSlot: "midday" | "eod" | null =
+    slotParam === "midday" ? "midday" : slotParam === "eod" ? "eod" : null;
+
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/");
@@ -21,7 +29,7 @@ export default async function RetentionPage() {
 
   if (!pc) redirect("/home");
 
-  // Determine the active retention slot: prefer EOD if both open.
+  // Look up which retention slots are currently open.
   const { data: windows } = await supabase
     .from("report_windows")
     .select("slot, opened_at, closed_at")
@@ -31,9 +39,17 @@ export default async function RetentionPage() {
 
   const eodOpen    = (windows ?? []).some((w) => w.slot === "eod"    && w.opened_at && !w.closed_at);
   const middayOpen = (windows ?? []).some((w) => w.slot === "midday" && w.opened_at && !w.closed_at);
-  const slot: "midday" | "eod" | null = eodOpen ? "eod" : middayOpen ? "midday" : null;
 
-  if (!slot) redirect("/home"); // window not open — bounce back
+  // Honour ?slot=<midday|eod> if the requested slot is actually open.
+  // Otherwise fall back to whichever single slot is open. If neither, bounce.
+  let slot: "midday" | "eod" | null = null;
+  if (requestedSlot === "midday" && middayOpen) slot = "midday";
+  else if (requestedSlot === "eod" && eodOpen)  slot = "eod";
+  else if (middayOpen && !eodOpen) slot = "midday";
+  else if (eodOpen && !middayOpen) slot = "eod";
+  else if (middayOpen && eodOpen)  slot = "midday"; // both open and no preference → default to midday
+
+  if (!slot) redirect("/home"); // no retention window open — bounce back
 
   const { data: me } = await supabase
     .from("account_managers").select("full_name").eq("id", meta.am_id).single();

@@ -336,31 +336,26 @@ export default async function AdminRequestPage({ searchParams }: RouteProps) {
         };
       });
     } else {
+      // Retention day rows respect the selected slot — 12pm tab shows midday
+      // data only, 5pm tab shows eod data only.
+      const slotLabel = slot === "eod" ? "5pm" : "12pm";
       dayRows = days.map((iso) => {
-        const middayRows = retention.filter((r) => r.report_date === iso && r.slot === "midday");
-        const eodRows    = retention.filter((r) => r.report_date === iso && r.slot === "eod");
-        const middayNet = middayRows.reduce((s, r) => s + Number(r.retention_naira_m), 0);
-        const eodNet    = eodRows.reduce((s, r) => s + Number(r.retention_naira_m), 0);
-        const middayCount = middayRows.length;
-        const eodCount    = eodRows.length;
-        const anyFiled = middayCount > 0 || eodCount > 0;
-        const parts: string[] = [];
-        if (middayCount > 0) parts.push(`12pm net ${middayNet < 0 ? "−" : "+"}₦${fmtMoney(middayNet)}M (${middayCount}/${totalPcs})`);
-        if (eodCount > 0)    parts.push(`5pm net ${eodNet < 0 ? "−" : "+"}₦${fmtMoney(eodNet)}M (${eodCount}/${totalPcs})`);
+        const slotRows = retention.filter((r) => r.report_date === iso && r.slot === slot);
+        const slotNet = slotRows.reduce((s, r) => s + Number(r.retention_naira_m), 0);
+        const slotCount = slotRows.length;
+        const anyFiled = slotCount > 0;
         const downloads: { href: string; label: string }[] = [];
-        if (middayCount > 0) downloads.push({ href: `/admin/retention/export/midday?date=${iso}`, label: "12pm" });
-        if (eodCount > 0)    downloads.push({ href: `/admin/retention/export/eod?date=${iso}`,    label: "5pm" });
-        const headlineNet = eodCount > 0 ? eodNet : middayCount > 0 ? middayNet : 0;
+        if (slotCount > 0) downloads.push({ href: `/admin/retention/export/${slot}?date=${iso}`, label: slotLabel });
         const primaryColor = anyFiled
-          ? (headlineNet < 0 ? "#DC2626" : headlineNet < 100 ? "var(--color-pending)" : "#16A34A")
+          ? (slotNet < 0 ? "#DC2626" : slotNet < 100 ? "var(--color-pending)" : "#16A34A")
           : "var(--color-ink)";
         return {
           iso,
           label: fmtFull(iso),
           isToday: iso === today,
-          primary: anyFiled ? `Net ${headlineNet < 0 ? "−" : "+"}₦${fmtMoney(headlineNet)}M` : "No filings",
+          primary: anyFiled ? `Net ${slotNet < 0 ? "−" : "+"}₦${fmtMoney(slotNet)}M` : "No filings",
           primaryColor,
-          secondary: parts.length ? parts.join(" · ") : `0/${totalPcs} teams filed`,
+          secondary: anyFiled ? `${slotLabel} · ${slotCount}/${totalPcs} teams filed` : `0/${totalPcs} teams filed`,
           downloads,
         };
       });

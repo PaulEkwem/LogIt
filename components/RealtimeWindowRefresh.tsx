@@ -18,16 +18,25 @@ export function RealtimeWindowRefresh({ divisionId }: { divisionId: string }) {
     if (!divisionId) return;
     const supabase = createSupabaseBrowserClient();
 
+    const channelName = `division-windows-${divisionId}`;
+    console.log("[realtime-windows] subscribing", { divisionId, channelName });
+
     const channel = supabase
-      .channel(`division-windows-${divisionId}`)
+      .channel(channelName)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "report_windows", filter: `division_id=eq.${divisionId}` },
-        () => router.refresh(),
+        (payload) => {
+          console.log("[realtime-windows] change received", payload);
+          router.refresh();
+        },
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log("[realtime-windows] subscription status:", status, err ?? "");
+      });
 
     return () => {
+      console.log("[realtime-windows] unsubscribing");
       supabase.removeChannel(channel);
     };
   }, [divisionId, router]);

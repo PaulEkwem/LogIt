@@ -322,6 +322,9 @@ export default async function AdminRequestPage({ searchParams }: RouteProps) {
         const opened = rows.reduce((s, r) => s + r.total_opened, 0);
         const acquired = rows.reduce((s, r) => s + r.acquired, 0);
         const filed = rows.length;
+        const downloads = filed > 0
+          ? [{ href: `/admin/acquisition/export?date=${iso}`, label: "PDF" }]
+          : [];
         return {
           iso,
           label: fmtFull(iso),
@@ -329,7 +332,7 @@ export default async function AdminRequestPage({ searchParams }: RouteProps) {
           primary: `${opened} opened`,
           primaryColor: "var(--color-ink)",
           secondary: filed > 0 ? `${acquired} acquired · ${filed}/${totalAms} AMs filed` : "No filings",
-          downloads: [],
+          downloads,
         };
       });
     } else {
@@ -400,11 +403,6 @@ export default async function AdminRequestPage({ searchParams }: RouteProps) {
               <DayRowEl key={row.iso} row={row} />
             ))}
           </div>
-          {tab === "acquisition" && (
-            <div className="text-center text-[11px] font-bold mt-3" style={{ color: "var(--color-muted)" }}>
-              Acquisition PDF export coming soon.
-            </div>
-          )}
         </section>
       )}
     </div>

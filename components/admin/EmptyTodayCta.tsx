@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import { useRequestWindow } from "@/lib/useRequestWindow";
+import { useWindowAction } from "@/lib/useRequestWindow";
 import { CountdownOverlay } from "./CountdownOverlay";
 
 export function EmptyTodayCta({
@@ -11,7 +11,7 @@ export function EmptyTodayCta({
   slot: "single" | "midday" | "eod";
   label: string;
 }) {
-  const { phase, request, finish } = useRequestWindow();
+  const { phase, active, fire, finish } = useWindowAction();
   const busy = phase !== "idle";
 
   return (
@@ -25,7 +25,7 @@ export function EmptyTodayCta({
           AMs are waiting on you. Tap below to send the request — they&apos;ll see it on their home screen immediately.
         </div>
         <button
-          onClick={() => request({ reportType, slot })}
+          onClick={() => fire({ variant: "request", reportType, slot, label })}
           disabled={busy}
           className="mt-5 rounded-2xl py-3 px-5 font-black text-[14px] flex items-center justify-center gap-2 text-white disabled:opacity-50 transition-transform active:scale-[0.98]"
           style={{ background: "linear-gradient(135deg, var(--color-brand-red), var(--color-brand-red-d))", letterSpacing: "-0.01em" }}
@@ -34,7 +34,9 @@ export function EmptyTodayCta({
         </button>
       </div>
 
-      {phase === "counting" && <CountdownOverlay label={label} onDone={finish} />}
+      {phase === "counting" && active && (
+        <CountdownOverlay variant={active.variant} label={active.label} onDone={finish} />
+      )}
     </>
   );
 }

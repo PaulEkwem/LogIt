@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import { useRequestWindow } from "@/lib/useRequestWindow";
+import { useWindowAction } from "@/lib/useRequestWindow";
 import { CountdownOverlay } from "./CountdownOverlay";
 
 export type BarDatum = {
@@ -49,9 +49,8 @@ export function BarChart({
   baseColor?: string;
   emptyHint?: string;
 }) {
-  const { phase, request, finish } = useRequestWindow();
+  const { phase, active, fire, finish } = useWindowAction();
   const busy = phase !== "idle";
-  const countingLabel = busy ? "Sending request to AMs…" : "";
 
   if (data.length === 0) {
     return (
@@ -69,13 +68,13 @@ export function BarChart({
   const zeroPct = (max / range) * 100;
 
   async function requestWindow(cta: NonNullable<BarDatum["cta"]>) {
-    await request({ reportType: cta.reportType, slot: cta.slot });
+    await fire({
+      variant: "request",
+      reportType: cta.reportType,
+      slot: cta.slot,
+      label: cta.label ?? "Request",
+    });
   }
-
-  // Pull the active CTA cell's label so the countdown overlay shows the right text
-  const activeCta = data.find((d) => d.cta)?.cta;
-  const overlayLabel = activeCta?.label ?? "Request";
-  void countingLabel;
 
   return (
     <div className="rounded-2xl p-3" style={{ background: "white", border: "1.5px solid var(--color-line)" }}>
@@ -107,7 +106,9 @@ export function BarChart({
         ))}
       </div>
 
-      {phase === "counting" && <CountdownOverlay label={overlayLabel} onDone={finish} />}
+      {phase === "counting" && active && (
+        <CountdownOverlay variant={active.variant} label={active.label} onDone={finish} />
+      )}
 
       {/* X-axis labels */}
       <div className="grid mt-2 gap-1.5" style={{ gridTemplateColumns: `repeat(${data.length}, 1fr)` }}>

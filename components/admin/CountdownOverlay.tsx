@@ -1,18 +1,38 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Radio, Lock, Unlock } from "lucide-react";
+
+export type CountdownVariant = "request" | "close" | "reopen";
+
+const COPY: Record<CountdownVariant, {
+  intro: string;
+  done: string;
+  finalColor: string;
+  Icon: typeof Radio;
+}> = {
+  request: { intro: "Going live in", done: "LIVE NOW",   finalColor: "var(--color-brand-gold)", Icon: Radio },
+  close:   { intro: "Closing in",   done: "CLOSED",      finalColor: "#FCA5A5",                   Icon: Lock },
+  reopen:  { intro: "Reopening in", done: "BACK LIVE",   finalColor: "var(--color-brand-gold)", Icon: Unlock },
+};
 
 /**
- * Full-screen broadcast countdown — 1, 2, 3, LIVE NOW.
- * Fires after the request API succeeds; on the LIVE flash it calls onDone.
+ * Full-screen broadcast countdown — 1, 2, 3, big finish.
+ * Fires after the API call succeeds; on the finish flash it calls onDone.
  */
-export function CountdownOverlay({ label, onDone }: { label: string; onDone: () => void }) {
-  // Phases: 1 (1s) → 2 (1s) → 3 (1s) → LIVE flash (700ms) → onDone
+export function CountdownOverlay({
+  variant, label, onDone,
+}: {
+  variant: CountdownVariant;
+  label: string;
+  onDone: () => void;
+}) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const { intro, done, finalColor, Icon } = COPY[variant];
 
   useEffect(() => {
     if (step === 4) {
-      const t = setTimeout(onDone, 700);
+      const t = setTimeout(onDone, 800);
       return () => clearTimeout(t);
     }
     const t = setTimeout(() => setStep((s) => (s + 1) as 1 | 2 | 3 | 4), 1000);
@@ -27,9 +47,14 @@ export function CountdownOverlay({ label, onDone }: { label: string; onDone: () 
           40%  { opacity: 1; transform: scale(1.15); }
           100% { opacity: 1; transform: scale(1); }
         }
-        @keyframes ltLivePulse {
+        @keyframes ltFinishIn {
+          0%   { opacity: 0; transform: scale(0.7); }
+          60%  { opacity: 1; transform: scale(1.1); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        @keyframes ltFinishPulse {
           0%, 100% { transform: scale(1); }
-          50%      { transform: scale(1.06); }
+          50%      { transform: scale(1.05); }
         }
       `}</style>
       <div
@@ -48,7 +73,7 @@ export function CountdownOverlay({ label, onDone }: { label: string; onDone: () 
               className="font-extrabold uppercase mb-6"
               style={{ color: "rgba(255,255,255,0.7)", letterSpacing: "0.3em", fontSize: 13 }}
             >
-              Going live in
+              {intro}
             </div>
             <div
               key={step}
@@ -72,12 +97,22 @@ export function CountdownOverlay({ label, onDone }: { label: string; onDone: () 
           </>
         ) : (
           <div
-            style={{ animation: "ltLivePulse 0.7s ease-in-out infinite" }}
             className="flex flex-col items-center"
+            style={{ animation: "ltFinishIn 0.5s ease-out, ltFinishPulse 1.4s ease-in-out 0.5s infinite" }}
           >
-            <div className="text-[88px] mb-3" aria-hidden>🚀</div>
-            <div className="font-black" style={{ fontSize: 48, color: "var(--color-brand-gold)", letterSpacing: "-0.03em" }}>
-              LIVE NOW
+            <div
+              className="rounded-full flex items-center justify-center mb-5"
+              style={{
+                width: 96, height: 96,
+                background: "rgba(255,255,255,0.12)",
+                border: `2px solid ${finalColor}`,
+                color: finalColor,
+              }}
+            >
+              <Icon className="w-12 h-12" strokeWidth={2.25} />
+            </div>
+            <div className="font-black" style={{ fontSize: 44, color: finalColor, letterSpacing: "-0.03em" }}>
+              {done}
             </div>
             <div className="font-extrabold text-[13px] mt-2" style={{ color: "rgba(255,255,255,0.85)" }}>
               {label}

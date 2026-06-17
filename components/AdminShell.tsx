@@ -15,7 +15,7 @@ const NAV = [
 ];
 
 // Paths that should render WITHOUT the shell (full-screen flows).
-const BARE_PATH_PREFIXES = ["/admin/onboarding", "/admin/retention/export"];
+const BARE_PATH_PREFIXES = ["/admin/onboarding", "/admin/retention/export", "/admin/acquisition/export"];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "";

@@ -38,19 +38,16 @@ export function AcquisitionPrintView({
   const now = new Date();
   const exportedAt = `${now.getDate()} ${MONTHS_SHORT[now.getMonth()]} ${now.getFullYear()} · ${now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
 
-  // Group by PC for readable layout
-  const byPc = new Map<string, { pc_name: string; pc_code: string; rows: AmRow[] }>();
-  for (const r of rows) {
-    const key = r.pc_code;
-    if (!byPc.has(key)) byPc.set(key, { pc_name: r.pc_name, pc_code: r.pc_code, rows: [] });
-    byPc.get(key)!.rows.push(r);
-  }
-  const groups = Array.from(byPc.values()).sort((a, b) => a.pc_name.localeCompare(b.pc_name));
+  // One unified, sorted table — by PC name, then AM code within each PC.
+  const sorted = [...rows].sort((a, b) => {
+    const byPc = a.pc_name.localeCompare(b.pc_name);
+    return byPc !== 0 ? byPc : a.am_code.localeCompare(b.am_code);
+  });
 
   return (
     <>
       <style>{`
-        @page { size: A4; margin: 18mm 14mm; }
+        @page { size: A4; margin: 14mm 12mm; }
         @media print {
           .no-print { display: none !important; }
           body { background: white !important; }
@@ -61,67 +58,64 @@ export function AcquisitionPrintView({
           color: #0F172A;
           max-width: 900px;
           margin: 0 auto;
-          padding: 28px 24px;
+          padding: 18px 18px;
           background: white;
         }
         .header-band {
           background: linear-gradient(135deg, #CE1126, #A30D1F);
           color: white;
-          padding: 18px 22px;
-          border-radius: 12px;
-          margin-bottom: 22px;
+          padding: 14px 18px;
+          border-radius: 10px;
+          margin-bottom: 14px;
         }
-        .header-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.78); }
-        .header-title  { font-size: 24px; font-weight: 900; letter-spacing: -0.025em; margin-top: 4px; }
-        .header-sub    { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.86); margin-top: 6px; }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .header-eyebrow { font-size: 10px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.78); }
+        .header-title  { font-size: 20px; font-weight: 900; letter-spacing: -0.025em; margin-top: 3px; }
+        .header-sub    { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.86); margin-top: 4px; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
         thead th {
           background: #F8FAFC;
           color: #64748B;
           font-weight: 800;
-          font-size: 10px;
+          font-size: 9px;
           letter-spacing: 0.1em;
           text-transform: uppercase;
           text-align: left;
-          padding: 10px 8px;
+          padding: 7px 6px;
           border-bottom: 2px solid #0F172A;
         }
         thead th.num { text-align: right; }
-        tbody td { padding: 9px 8px; border-bottom: 1px solid #E2E8F0; vertical-align: top; }
+
+        tbody td {
+          padding: 4px 6px;
+          border-bottom: 1px solid #E2E8F0;
+          vertical-align: top;
+          line-height: 1.25;
+        }
+        tbody tr.team-first td {
+          border-top: 1.5px solid #94A3B8;
+          padding-top: 6px;
+        }
+        tbody td.team-cell { font-weight: 900; color: #0F172A; }
+        tbody td.pc-cell { font-weight: 800; color: #64748B; font-size: 10px; }
+        tbody td.name { font-weight: 700; }
+        tbody td.code { color: #94A3B8; font-weight: 700; font-size: 10px; }
         tbody td.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 800; }
-        tbody td.name { font-weight: 800; }
-        tbody td.code { color: #94A3B8; font-weight: 700; font-size: 11px; }
-        tbody td.pending { color: #B45309; font-weight: 700; font-style: italic; }
-        tbody td.time { color: #64748B; font-weight: 600; font-size: 11px; }
+        tbody td.pending { color: #B45309; font-weight: 700; font-style: italic; text-align: right; }
+
         tfoot td {
-          padding: 12px 8px;
+          padding: 9px 6px;
           font-weight: 900;
           background: #F8FAFC;
           border-top: 2px solid #0F172A;
         }
         tfoot td.num { text-align: right; font-variant-numeric: tabular-nums; }
-        .pc-heading {
-          margin: 20px 0 6px;
-          font-size: 13px;
-          font-weight: 900;
-          color: #0F172A;
-          letter-spacing: -0.01em;
-        }
-        .pc-heading .code-chip {
-          margin-left: 8px;
-          font-size: 10px;
-          font-weight: 800;
-          color: #64748B;
-          background: #F1F5F9;
-          padding: 2px 6px;
-          border-radius: 4px;
-          letter-spacing: 0.08em;
-        }
+
         .footer {
-          margin-top: 22px;
-          padding-top: 14px;
+          margin-top: 14px;
+          padding-top: 10px;
           border-top: 1px solid #E2E8F0;
-          font-size: 11px;
+          font-size: 10px;
           color: #64748B;
           font-weight: 700;
           display: flex;
@@ -149,59 +143,41 @@ export function AcquisitionPrintView({
           <div className="header-sub">{divisionName} · {dateStr}</div>
         </div>
 
-        {groups.map((g) => {
-          const filed = g.rows.filter((r) => r.filed);
-          const pending = g.rows.filter((r) => !r.filed);
-          const teamAcquired = filed.reduce((s, r) => s + (r as Extract<AmRow, { filed: true }>).acquired, 0);
-          const teamOpened   = filed.reduce((s, r) => s + (r as Extract<AmRow, { filed: true }>).opened, 0);
-          return (
-            <div key={g.pc_code}>
-              <div className="pc-heading">
-                {g.pc_name}
-                <span className="code-chip">PC {g.pc_code}</span>
-              </div>
-              <table>
-                <thead>
-                  <tr>
-                    <th>AM</th>
-                    <th>Code</th>
-                    <th className="num">Acquired</th>
-                    <th className="num">Opened</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {g.rows.map((r) => (
-                    <tr key={r.am_code}>
-                      <td className="name">{r.full_name}</td>
-                      <td className="code">{r.am_code}</td>
-                      {r.filed ? (
-                        <>
-                          <td className="num">{r.acquired}</td>
-                          <td className="num">{r.opened}</td>
-                        </>
-                      ) : (
-                        <td className="num pending" colSpan={2}>Pending</td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td colSpan={2}>{g.pc_name.toUpperCase()} TOTAL · {filed.length}/{g.rows.length}{pending.length === 0 ? " all filed" : ""}</td>
-                    <td className="num">{teamAcquired}</td>
-                    <td className="num">{teamOpened}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          );
-        })}
-
-        <div className="pc-heading">Division total</div>
         <table>
+          <thead>
+            <tr>
+              <th style={{ width: "18%" }}>Team</th>
+              <th style={{ width: "6%" }}>PC</th>
+              <th style={{ width: "32%" }}>AM</th>
+              <th style={{ width: "10%" }}>Code</th>
+              <th className="num" style={{ width: "17%" }}>Acquired</th>
+              <th className="num" style={{ width: "17%" }}>Opened</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((r, i) => {
+              const isFirstOfTeam = i === 0 || sorted[i - 1].pc_code !== r.pc_code;
+              return (
+                <tr key={r.am_code} className={isFirstOfTeam ? "team-first" : ""}>
+                  <td className="team-cell">{isFirstOfTeam ? r.pc_name : ""}</td>
+                  <td className="pc-cell">{isFirstOfTeam ? r.pc_code : ""}</td>
+                  <td className="name">{r.full_name}</td>
+                  <td className="code">{r.am_code}</td>
+                  {r.filed ? (
+                    <>
+                      <td className="num">{r.acquired}</td>
+                      <td className="num">{r.opened}</td>
+                    </>
+                  ) : (
+                    <td className="pending" colSpan={2}>Pending</td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
           <tfoot>
             <tr>
-              <td colSpan={2}>{divisionName.toUpperCase()} · {filedCount}/{rows.length} AMs filed</td>
+              <td colSpan={4}>{divisionName.toUpperCase()} · {filedCount}/{rows.length} AMs filed</td>
               <td className="num">{totals.acquired}</td>
               <td className="num">{totals.opened}</td>
             </tr>

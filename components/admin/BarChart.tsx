@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
+import { useRequestWindow } from "@/lib/useRequestWindow";
+import { CountdownOverlay } from "./CountdownOverlay";
 
 export type BarDatum = {
   label: string;
@@ -49,8 +49,9 @@ export function BarChart({
   baseColor?: string;
   emptyHint?: string;
 }) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
+  const { phase, request, finish } = useRequestWindow();
+  const busy = phase !== "idle";
+  const countingLabel = busy ? "Sending request to AMs…" : "";
 
   if (data.length === 0) {
     return (
@@ -68,23 +69,13 @@ export function BarChart({
   const zeroPct = (max / range) * 100;
 
   async function requestWindow(cta: NonNullable<BarDatum["cta"]>) {
-    setBusy(true);
-    try {
-      const res = await fetch("/api/admin/window", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "open", report_type: cta.reportType, slot: cta.slot }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        router.refresh();
-      } else {
-        alert(data.error ?? "Couldn't open the window.");
-      }
-    } finally {
-      setBusy(false);
-    }
+    await request({ reportType: cta.reportType, slot: cta.slot });
   }
+
+  // Pull the active CTA cell's label so the countdown overlay shows the right text
+  const activeCta = data.find((d) => d.cta)?.cta;
+  const overlayLabel = activeCta?.label ?? "Request";
+  void countingLabel;
 
   return (
     <div className="rounded-2xl p-3" style={{ background: "white", border: "1.5px solid var(--color-line)" }}>
@@ -115,6 +106,8 @@ export function BarChart({
           </div>
         ))}
       </div>
+
+      {phase === "counting" && <CountdownOverlay label={overlayLabel} onDone={finish} />}
 
       {/* X-axis labels */}
       <div className="grid mt-2 gap-1.5" style={{ gridTemplateColumns: `repeat(${data.length}, 1fr)` }}>

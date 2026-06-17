@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient, createSupabaseAdminClient } from "@/lib/supabase/server";
+import { lagosDate } from "@/lib/time";
 
 type Slot = "midday" | "eod";
 
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
   }
 
   const retention = Math.round((inflow - outflow) * 100) / 100;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = lagosDate();
 
   // RLS already requires an open window, but we also want to read the
   // division_id so we can auto-close once everyone's filed.

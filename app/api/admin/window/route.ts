@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { lagosDate } from "@/lib/time";
 
 type WindowAction = "open" | "close";
 type ReportType = "acquisition" | "retention";
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `slot must be one of ${VALID_SLOTS[type].join(", ")}` }, { status: 400 });
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = lagosDate();
 
   if (action === "open") {
     // If a row already exists for this window today, return it (idempotent open).

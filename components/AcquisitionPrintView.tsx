@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type AmRow =
   | { am_code: string; full_name: string; pc_name: string; pc_code: string; filed: false }
@@ -28,9 +28,39 @@ export function AcquisitionPrintView({
   filedCount: number;
   adminName: string;
 }) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [downloading, setDownloading] = useState(false);
+
+  async function downloadPdf() {
+    if (!rootRef.current) return;
+    setDownloading(true);
+    try {
+      const html2pdf = (await import("html2pdf.js")).default;
+      const el = rootRef.current;
+      // Continuous single page sized to the actual content height.
+      const widthMm = 210; // A4 width
+      const ratio = el.offsetHeight / el.offsetWidth;
+      const heightMm = Math.max(297, Math.ceil(widthMm * ratio) + 4);
+      // pagebreak is supported at runtime but isn't in the published typings.
+      const opts = {
+        margin: 0,
+        filename: `acquisition-${reportDate}.pdf`,
+        image: { type: "jpeg", quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+        jsPDF: { unit: "mm", format: [widthMm, heightMm], orientation: "portrait" },
+        pagebreak: { mode: ["avoid-all"] },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any;
+      await html2pdf().from(el).set(opts).save();
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   useEffect(() => {
-    const t = setTimeout(() => window.print(), 400);
+    const t = setTimeout(() => { void downloadPdf(); }, 500);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const d = new Date(reportDate + "T00:00:00");
@@ -136,7 +166,7 @@ export function AcquisitionPrintView({
           box-shadow: 0 4px 16px rgba(0,0,0,0.2);
         }
       `}</style>
-      <div className="print-root">
+      <div className="print-root" ref={rootRef}>
         <div className="header-band">
           <div className="header-eyebrow">LogIt · Daily Acquisition Report</div>
           <div className="header-title">Customer Acquisition</div>
@@ -190,8 +220,8 @@ export function AcquisitionPrintView({
         </div>
       </div>
 
-      <button onClick={() => window.print()} className="print-cta no-print">
-        Print / Save as PDF
+      <button onClick={downloadPdf} disabled={downloading} className="print-cta no-print">
+        {downloading ? "Generating PDF…" : "Download again"}
       </button>
     </>
   );

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient, createSupabaseAdminClient } from "@/lib/supabase/server";
+import { lagosDate } from "@/lib/time";
 
 type SubmitBody = {
   acquired?: number;
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid numbers" }, { status: 400 });
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = lagosDate();
 
   const { data: report, error: upErr } = await supabase
     .from("daily_reports")

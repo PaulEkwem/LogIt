@@ -149,7 +149,6 @@ export function RetentionPrintView({
               <th className="num">Inflow (₦M)</th>
               <th className="num">Outflow (₦M)</th>
               <th className="num">Net (₦M)</th>
-              <th>Filed by</th>
             </tr>
           </thead>
           <tbody>
@@ -165,27 +164,22 @@ export function RetentionPrintView({
                     <td className="num" style={{ color: netColor(r.net) }}>
                       {r.net < 0 ? "−" : "+"}{fmtMoney(r.net)}
                     </td>
-                    <td className="filler">{r.filled_by} · {r.time}</td>
                   </>
                 ) : (
-                  <>
-                    <td className="num pending" colSpan={4}>Pending</td>
-                    <td className="filler">—</td>
-                  </>
+                  <td className="num pending" colSpan={4}>Pending</td>
                 )}
               </tr>
             ))}
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={2}>DIVISION TOTAL</td>
+              <td colSpan={2}>DIVISION TOTAL · {filedCount}/{rows.length} teams filed</td>
               <td className="num">{fmtMoney(totals.pledges)}</td>
               <td className="num" style={{ color: "#166534" }}>{fmtMoney(totals.inflow)}</td>
               <td className="num" style={{ color: "#B91C1C" }}>{fmtMoney(totals.outflow)}</td>
               <td className="num" style={{ color: netColor(totals.net) }}>
                 {totals.net < 0 ? "−" : "+"}{fmtMoney(totals.net)}
               </td>
-              <td>{filedCount}/{rows.length} teams filed</td>
             </tr>
           </tfoot>
         </table>

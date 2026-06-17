@@ -70,7 +70,7 @@ const PC_RENAMES = [
 
 // Codes from previous seeds that are no longer in use. We delete the auth
 // users so they can't sign in with the old credentials.
-const RETIRED_CODES = ["3122", "3125", "3414"];
+const RETIRED_CODES = ["3122", "3125", "3114"];
 
 // ============================================================================
 // AMs — fill from spreadsheet. Each entry:
@@ -153,10 +153,10 @@ const AMS = [
   { code: "3163", first_name: "Samuel",    last_name: "",        pc_code: "316" },
   { code: "3164", first_name: "Chinenye",  last_name: "",        pc_code: "316" },
 
-  // PC 341 — Okota  (Millicent's am_code is 3114 per HQ assignment, unusual but intentional)
+  // PC 341 — Okota
   { code: "3411", first_name: "Olawale",   last_name: "",        pc_code: "341" },
   { code: "3412", first_name: "Sunkami",   last_name: "",        pc_code: "341" },
-  { code: "3114", first_name: "Millicent", last_name: "",        pc_code: "341" },
+  { code: "3414", first_name: "Millicent", last_name: "",        pc_code: "341" },
 
   // PC 385 — Orile
   { code: "3851", first_name: "Abiodun",   last_name: "Aremu",   pc_code: "385" },

@@ -12,8 +12,6 @@ export type AmRow =
       filed: true;
       acquired: number;
       opened: number;
-      same_day_conv: number;
-      time: string;
     };
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -169,8 +167,6 @@ export function AcquisitionPrintView({
                     <th>Code</th>
                     <th className="num">Acquired</th>
                     <th className="num">Opened</th>
-                    <th className="num">Conv %</th>
-                    <th>Filed at</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -182,25 +178,18 @@ export function AcquisitionPrintView({
                         <>
                           <td className="num">{r.acquired}</td>
                           <td className="num">{r.opened}</td>
-                          <td className="num">{r.acquired > 0 ? `${r.same_day_conv}%` : "—"}</td>
-                          <td className="time">{r.time}</td>
                         </>
                       ) : (
-                        <>
-                          <td className="num pending" colSpan={3}>Pending</td>
-                          <td className="time">—</td>
-                        </>
+                        <td className="num pending" colSpan={2}>Pending</td>
                       )}
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan={2}>{g.pc_name.toUpperCase()} TOTAL</td>
+                    <td colSpan={2}>{g.pc_name.toUpperCase()} TOTAL · {filed.length}/{g.rows.length}{pending.length === 0 ? " all filed" : ""}</td>
                     <td className="num">{teamAcquired}</td>
                     <td className="num">{teamOpened}</td>
-                    <td className="num">{filed.length}/{g.rows.length}</td>
-                    <td>{pending.length === 0 ? "all filed" : `${pending.length} pending`}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -212,11 +201,9 @@ export function AcquisitionPrintView({
         <table>
           <tfoot>
             <tr>
-              <td colSpan={2}>{divisionName.toUpperCase()}</td>
+              <td colSpan={2}>{divisionName.toUpperCase()} · {filedCount}/{rows.length} AMs filed</td>
               <td className="num">{totals.acquired}</td>
               <td className="num">{totals.opened}</td>
-              <td className="num">{filedCount}/{rows.length}</td>
-              <td>{rows.length - filedCount} pending</td>
             </tr>
           </tfoot>
         </table>

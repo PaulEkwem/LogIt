@@ -56,19 +56,13 @@ export default async function AcquisitionExportPage({ searchParams }: RouteProps
     if (!r) {
       return { am_code: am.am_code, full_name: am.full_name, pc_name, pc_code, filed: false };
     }
-    const acquired = r.acquired;
-    const opened = r.total_opened;
-    const sameDay = r.opened_same_day;
-    const conv = acquired > 0 ? Math.round((sameDay / acquired) * 100) : 0;
     return {
       am_code: am.am_code,
       full_name: am.full_name,
       pc_name, pc_code,
       filed: true,
-      acquired,
-      opened,
-      same_day_conv: conv,
-      time: new Date(r.submitted_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      acquired: r.acquired,
+      opened: r.total_opened,
     };
   });
 

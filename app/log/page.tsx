@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { TallyFlow } from "@/components/TallyFlow";
+import { lagosDate } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export default async function LogPage() {
   const meta = user.app_metadata as { role?: string; am_id?: string; pc_id?: string };
   if (meta.role === "admin" || !meta.am_id || !meta.pc_id) redirect("/admin");
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = lagosDate();
 
   const { data: pc } = await supabase
     .from("pcs").select("division_id").eq("id", meta.pc_id).single();

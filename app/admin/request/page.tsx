@@ -236,7 +236,7 @@ export default async function AdminRequestPage({ searchParams }: RouteProps) {
                 reportType="acquisition"
                 slot="single"
                 state={state}
-                downloadHref={null}
+                downloadHref="/admin/acquisition/export"
               />
               <AcquisitionLive entries={entries} />
             </>

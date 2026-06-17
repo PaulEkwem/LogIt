@@ -58,7 +58,7 @@ export function RetentionPrintView({
   return (
     <>
       <style>{`
-        @page { size: A4; margin: 18mm 14mm; }
+        @page { size: A4; margin: 14mm 12mm; }
         @media print {
           .no-print { display: none !important; }
           body { background: white !important; }
@@ -69,50 +69,49 @@ export function RetentionPrintView({
           color: #0F172A;
           max-width: 900px;
           margin: 0 auto;
-          padding: 28px 24px;
+          padding: 18px 18px;
           background: white;
         }
         .header-band {
           background: linear-gradient(135deg, #CE1126, #A30D1F);
           color: white;
-          padding: 18px 22px;
-          border-radius: 12px;
-          margin-bottom: 22px;
+          padding: 14px 18px;
+          border-radius: 10px;
+          margin-bottom: 14px;
         }
-        .header-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.78); }
-        .header-title  { font-size: 24px; font-weight: 900; letter-spacing: -0.025em; margin-top: 4px; }
-        .header-sub    { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.86); margin-top: 6px; }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .header-eyebrow { font-size: 10px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.78); }
+        .header-title  { font-size: 20px; font-weight: 900; letter-spacing: -0.025em; margin-top: 3px; }
+        .header-sub    { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.86); margin-top: 4px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
         thead th {
           background: #F8FAFC;
           color: #64748B;
           font-weight: 800;
-          font-size: 10px;
+          font-size: 9px;
           letter-spacing: 0.1em;
           text-transform: uppercase;
           text-align: left;
-          padding: 10px 8px;
+          padding: 7px 6px;
           border-bottom: 2px solid #0F172A;
         }
         thead th.num { text-align: right; }
-        tbody td { padding: 9px 8px; border-bottom: 1px solid #E2E8F0; vertical-align: top; }
+        tbody td { padding: 6px 6px; border-bottom: 1px solid #E2E8F0; vertical-align: middle; line-height: 1.25; }
         tbody td.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 800; }
-        tbody td.team { font-weight: 800; }
-        tbody td.pc-code { color: #94A3B8; font-weight: 700; font-size: 11px; }
-        tbody td.filler { color: #64748B; font-weight: 600; font-size: 11px; }
-        tbody td.pending { color: #B45309; font-weight: 700; font-style: italic; }
+        tbody td.team { font-weight: 900; }
+        tbody td.pc-code { color: #64748B; font-weight: 800; font-size: 10px; }
+        tbody td.pending { color: #B45309; font-weight: 700; font-style: italic; text-align: right; }
         tfoot td {
-          padding: 12px 8px;
+          padding: 9px 6px;
           font-weight: 900;
           background: #F8FAFC;
           border-top: 2px solid #0F172A;
         }
         tfoot td.num { text-align: right; font-variant-numeric: tabular-nums; }
         .footer {
-          margin-top: 22px;
-          padding-top: 14px;
+          margin-top: 14px;
+          padding-top: 10px;
           border-top: 1px solid #E2E8F0;
-          font-size: 11px;
+          font-size: 10px;
           color: #64748B;
           font-weight: 700;
           display: flex;

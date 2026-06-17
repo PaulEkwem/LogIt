@@ -1,6 +1,8 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { HomeScreen } from "@/components/HomeScreen";
+import { RealtimeWindowRefresh } from "@/components/RealtimeWindowRefresh";
 import type { DailyReport } from "@/lib/types";
+import { lagosDate, lagosYesterday } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +11,7 @@ export default async function HomePage() {
   const { data: { user } } = await supabase.auth.getUser();
   const meta = user!.app_metadata as { am_id: string; pc_id: string };
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = lagosDate();
 
   const [{ data: amRow }, { data: reports }, { data: pcRow }] = await Promise.all([
     supabase.from("account_managers").select("id, full_name, am_code, daily_goal").eq("id", meta.am_id).single(),
@@ -22,7 +24,7 @@ export default async function HomePage() {
   const divisionId = pcRow?.division_id ?? "";
 
   // Yesterday team snapshot for the waiting-state card.
-  const yesterdayDate = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  const yesterdayDate = lagosYesterday();
   const { data: teamAms } = await supabase
     .from("account_managers")
     .select("id")
@@ -90,6 +92,8 @@ export default async function HomePage() {
   }
 
   return (
+    <>
+    <RealtimeWindowRefresh divisionId={divisionId} />
     <HomeScreen
       amName={amRow?.full_name ?? "Account Manager"}
       goal={amRow?.daily_goal ?? 15}
@@ -104,5 +108,6 @@ export default async function HomePage() {
       activeRetentionSlot={activeRetentionSlot}
       yesterdaySnapshot={yesterdaySnapshot}
     />
+    </>
   );
 }
